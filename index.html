@@ -233,6 +233,7 @@
     }
 
     window.handleTodayRecords = function (records) {
+      timeLabel.textContent = '読み込んだ記録数: ' + records.length;
       records.forEach((r) => {
         addSavedArc(Number(r.startHour), Number(r.endHour), r.category);
       });
