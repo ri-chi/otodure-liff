@@ -227,8 +227,13 @@
     });
 
     function loadTodayRecords() {
+      const url = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${dateStr}&callback=handleTodayRecords`;
+      timeLabel.textContent = url;
       const script = document.createElement('script');
-      script.src = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${dateStr}&callback=handleTodayRecords`;
+      script.src = url;
+      script.onerror = function () {
+        timeLabel.textContent = 'スクリプト読み込み失敗: ' + url;
+      };
       document.body.appendChild(script);
     }
 
