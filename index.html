@@ -20,6 +20,12 @@
   </style>
 </head>
 <body>
+  <script>
+  window.onerror = function(message, source, lineno, colno, error) {
+      var el = document.getElementById('timeLabel');
+      if (el) el.textContent = 'JSエラー: ' + message + ' (行:' + lineno + ')';
+    };
+  </script>
   <h3>今日の記録</h3>
   <div id="timeLabel">円をドラッグして時間帯を選んでください</div>
 
