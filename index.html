@@ -26,7 +26,7 @@
       if (el) el.textContent = 'JSエラー: ' + message + ' (行:' + lineno + ')';
     };
   </script>
-  <h3>今日の記録</h3>
+  <h3 id="dateHeading">記録</h3>
   <div id="timeLabel">円をドラッグして時間帯を選んでください</div>
 
   <svg id="clock" width="300" height="300" viewBox="0 0 300 300">
@@ -82,6 +82,9 @@
     const detailInput = document.getElementById('detail');
     const closeBtn = document.getElementById('closeBtn');
     const CENTER = { x: 150, y: 150 };
+    const today = new Date();
+    document.getElementById('dateHeading').textContent =
+      `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}の記録`;
     const RADIUS = 120;
 
     function hourToAngle(hour) {
