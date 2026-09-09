@@ -85,9 +85,6 @@
     const today = new Date();
     document.getElementById('dateHeading').textContent =
       `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}の記録`;
-    const today = new Date();
-    document.getElementById('dateHeading').textContent =
-      `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}の記録`;
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const RADIUS = 120;
 
@@ -228,6 +225,7 @@
     closeBtn.addEventListener('click', () => {
       liff.closeWindow();
     });
+
     function loadTodayRecords() {
       const script = document.createElement('script');
       script.src = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${dateStr}&callback=handleTodayRecords`;
