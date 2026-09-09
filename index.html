@@ -227,21 +227,21 @@
     });
 
     function loadTodayRecords() {
+      timeLabel.textContent = '読み込み中...';
       const url = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${dateStr}&callback=handleTodayRecords`;
-      timeLabel.textContent = url;
       const script = document.createElement('script');
       script.src = url;
       script.onerror = function () {
-        timeLabel.textContent = 'スクリプト読み込み失敗: ' + url;
+        timeLabel.textContent = '記録の読み込みに失敗しました';
       };
       document.body.appendChild(script);
     }
 
     window.handleTodayRecords = function (records) {
-      timeLabel.textContent = '読み込んだ記録数: ' + records.length;
       records.forEach((r) => {
         addSavedArc(Number(r.startHour), Number(r.endHour), r.category);
       });
+      timeLabel.textContent = '円をドラッグして時間帯を選んでください';
     };
   </script>
 </body>
