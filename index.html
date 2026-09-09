@@ -85,6 +85,10 @@
     const today = new Date();
     document.getElementById('dateHeading').textContent =
       `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}の記録`;
+    const today = new Date();
+    document.getElementById('dateHeading').textContent =
+      `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}の記録`;
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const RADIUS = 120;
 
     function hourToAngle(hour) {
@@ -185,7 +189,10 @@
       if (!liff.isLoggedIn()) { liff.login(); return; }
       return liff.getProfile();
     }).then((profile) => {
-      if (profile) userId = profile.userId;
+      if (profile) {
+        userId = profile.userId;
+        loadTodayRecords();
+      }
     }).catch((err) => {
       timeLabel.textContent = 'ログインエラー: ' + err;
     });
@@ -221,6 +228,17 @@
     closeBtn.addEventListener('click', () => {
       liff.closeWindow();
     });
+    function loadTodayRecords() {
+      const script = document.createElement('script');
+      script.src = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${dateStr}&callback=handleTodayRecords`;
+      document.body.appendChild(script);
+    }
+
+    window.handleTodayRecords = function (records) {
+      records.forEach((r) => {
+        addSavedArc(Number(r.startHour), Number(r.endHour), r.category);
+      });
+    };
   </script>
 </body>
 </html>
