@@ -109,7 +109,14 @@
   </div>
 
   <div id="editArea" style="display:none;">
-    <div id="editTimeLabel"></div>
+    <div class="time-row" id="editStartRow">
+      <span>開始</span>
+      <span id="editStartDisplay">--:--</span>
+    </div>
+    <div class="time-row" id="editEndRow">
+      <span>終了</span>
+      <span id="editEndDisplay">--:--</span>
+    </div>
     <div class="category-btn edit-category-btn" data-category="digital_alone">デジタルを触ってた自由な一人時間</div>
     <div class="category-btn edit-category-btn" data-category="offline_alone">デジタルを触ってない自由な一人時間</div>
     <div class="category-btn edit-category-btn" data-category="other">仕事・バイト・睡眠・学校・友だちと遊んでた時間</div>
@@ -224,12 +231,12 @@
       return savedSegments.find((seg) => isHourInSegment(hour, seg));
     }
 
-    function rangeOverlapsExisting(sh, eh) {
+    function rangeOverlapsExisting(sh, eh, excludeId) {
       let sweep = eh - sh;
       if (sweep < 0) sweep += 24;
       for (let t = 0; t <= sweep; t += 1 / 12) {
         const hour = (sh + t) % 24;
-        if (savedSegments.some((seg) => isHourInSegment(hour, seg))) return true;
+        if (savedSegments.some((seg) => seg.id !== excludeId && isHourInSegment(hour, seg))) return true;
       }
       return false;
     }
@@ -350,12 +357,15 @@
     // ---- 記録済み部分をタップしたときの詳細・編集 ----
     let currentEditSegment = null;
     let editSelectedCategory = null;
+    let editPickedStart = null, editPickedEnd = null;
 
     function openEditArea(seg) {
       currentEditSegment = seg;
       editSelectedCategory = seg.category;
-      document.getElementById('editTimeLabel').textContent =
-        `${formatHour(seg.startHour)} 〜 ${formatHour(seg.endHour)}`;
+      editPickedStart = seg.startHour;
+      editPickedEnd = seg.endHour;
+      document.getElementById('editStartDisplay').textContent = formatHour(seg.startHour);
+      document.getElementById('editEndDisplay').textContent = formatHour(seg.endHour);
       document.getElementById('editDetail').value = seg.detail || '';
       document.querySelectorAll('.edit-category-btn').forEach((b) => {
         b.classList.toggle('selected', b.dataset.category === seg.category);
@@ -364,6 +374,9 @@
       timeAdjustArea.style.display = 'none';
       editArea.style.display = 'block';
     }
+
+    document.getElementById('editStartRow').addEventListener('click', () => openWheelPicker('editStart'));
+    document.getElementById('editEndRow').addEventListener('click', () => openWheelPicker('editEnd'));
 
     document.querySelectorAll('.edit-category-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -376,18 +389,31 @@
     document.getElementById('editUpdateBtn').addEventListener('click', () => {
       if (!currentEditSegment) return;
       const detail = document.getElementById('editDetail').value;
+      const newStart = editPickedStart;
+      const newEnd = editPickedEnd;
+      if (newStart === newEnd) {
+        timeLabel.textContent = '開始と終了の時刻が同じです。時刻を確認してください';
+        return;
+      }
+      if (rangeOverlapsExisting(newStart, newEnd, currentEditSegment.id)) {
+        timeLabel.textContent = 'その時間帯はすでに他の記録があります。時刻を確認してください';
+        return;
+      }
       document.getElementById('f_action').value = 'update';
       document.getElementById('f_id').value = currentEditSegment.id;
       document.getElementById('f_userId').value = userId;
       document.getElementById('f_category').value = editSelectedCategory;
-      document.getElementById('f_startHour').value = currentEditSegment.startHour;
-      document.getElementById('f_endHour').value = currentEditSegment.endHour;
+      document.getElementById('f_startHour').value = newStart;
+      document.getElementById('f_endHour').value = newEnd;
       document.getElementById('f_detail').value = detail;
       document.getElementById('saveForm').submit();
 
       currentEditSegment.category = editSelectedCategory;
       currentEditSegment.detail = detail;
+      currentEditSegment.startHour = newStart;
+      currentEditSegment.endHour = newEnd;
       currentEditSegment.pathEl.setAttribute('stroke', CATEGORY_COLORS[editSelectedCategory] || '#999');
+      currentEditSegment.pathEl.setAttribute('d', describeArc(newStart, newEnd));
 
       editArea.style.display = 'none';
       timeLabel.textContent = '更新しました';
@@ -463,15 +489,25 @@
 
     let wheelTarget = null;
     let pickedStart = null, pickedEnd = null;
+    let wheelReturnPanel = null;
 
     function nearestFive(m) {
       return Math.round(m / 5) * 5 % 60;
     }
 
+    const WHEEL_TITLES = { start: '開始時刻', end: '終了時刻', editStart: '開始時刻', editEnd: '終了時刻' };
+
+    function currentWheelValue(target) {
+      if (target === 'start') return pickedStart;
+      if (target === 'end') return pickedEnd;
+      if (target === 'editStart') return editPickedStart;
+      return editPickedEnd;
+    }
+
     function openWheelPicker(target) {
       wheelTarget = target;
-      document.getElementById('wheelTitle').textContent = target === 'start' ? '開始時刻' : '終了時刻';
-      const current = target === 'start' ? pickedStart : pickedEnd;
+      document.getElementById('wheelTitle').textContent = WHEEL_TITLES[target];
+      const current = currentWheelValue(target);
       const now = new Date();
       const hh = current !== null ? Math.floor(current) : now.getHours();
       const mm = current !== null ? nearestFive(Math.round((current - Math.floor(current)) * 60)) : nearestFive(now.getMinutes());
@@ -479,7 +515,9 @@
       scrollWheelTo(minuteWheel, MINUTES, mm);
       highlightCenter(hourWheel, HOURS);
       highlightCenter(minuteWheel, MINUTES);
+      wheelReturnPanel = target === 'editStart' || target === 'editEnd' ? editArea : timeAdjustArea;
       timeAdjustArea.style.display = 'none';
+      editArea.style.display = 'none';
       wheelPicker.style.display = 'block';
     }
 
@@ -497,21 +535,28 @@
       const h = HOURS[getWheelIndex(hourWheel, HOURS)];
       const m = MINUTES[getWheelIndex(minuteWheel, MINUTES)];
       const value = h + m / 60;
+      const label = `${h}:${String(m).padStart(2, '0')}`;
       if (wheelTarget === 'start') {
         pickedStart = value;
-        document.getElementById('startDisplay').textContent = `${h}:${String(m).padStart(2, '0')}`;
-      } else {
+        document.getElementById('startDisplay').textContent = label;
+      } else if (wheelTarget === 'end') {
         pickedEnd = value;
-        document.getElementById('endDisplay').textContent = `${h}:${String(m).padStart(2, '0')}`;
+        document.getElementById('endDisplay').textContent = label;
+      } else if (wheelTarget === 'editStart') {
+        editPickedStart = value;
+        document.getElementById('editStartDisplay').textContent = label;
+      } else if (wheelTarget === 'editEnd') {
+        editPickedEnd = value;
+        document.getElementById('editEndDisplay').textContent = label;
       }
       wheelPicker.style.display = 'none';
-      timeAdjustArea.style.display = 'block';
+      wheelReturnPanel.style.display = 'block';
       document.getElementById('timeAdjustConfirmBtn').disabled = !(pickedStart !== null && pickedEnd !== null);
     });
 
     document.getElementById('wheelCancelBtn').addEventListener('click', () => {
       wheelPicker.style.display = 'none';
-      timeAdjustArea.style.display = 'block';
+      wheelReturnPanel.style.display = 'block';
     });
 
     document.getElementById('timeAdjustCancelBtn').addEventListener('click', () => {
