@@ -23,6 +23,27 @@
     #editUpdateBtn { background: #06c755; color: white; }
     #editDeleteBtn { background: #e74c3c; color: white; }
     #editCancelBtn { background: #ccc; color: #333; }
+
+    #timeAdjustBtn { background: none; border: 1px solid #06c755; color: #06c755; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; }
+
+    #timeAdjustArea, #wheelPicker { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; text-align: left; max-width: 280px; margin-left: auto; margin-right: auto; }
+    .time-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: white; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 10px; font-size: 15px; }
+    .time-row span:first-child { color: #666; }
+    .time-row span:last-child { font-weight: bold; font-size: 17px; }
+    #timeAdjustArea button, #wheelPicker button { padding: 12px 20px; border-radius: 20px; border: none; font-size: 14px; margin: 6px 4px; }
+    #timeAdjustConfirmBtn { background: #06c755; color: white; }
+    #timeAdjustConfirmBtn:disabled { background: #ccc; }
+    #timeAdjustCancelBtn, #wheelCancelBtn { background: #ccc; color: #333; }
+    #wheelConfirmBtn { background: #06c755; color: white; }
+    #wheelTitle { text-align: center; font-weight: bold; margin-bottom: 10px; }
+
+    .wheel-wrap { position: relative; display: flex; justify-content: center; gap: 20px; height: 180px; }
+    .wheel-highlight { position: absolute; top: 72px; left: 20px; right: 20px; height: 36px; background: #f2f2f2; border-radius: 18px; z-index: 0; }
+    .wheel { position: relative; z-index: 1; height: 180px; width: 70px; overflow-y: scroll; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; background: transparent; }
+    .wheel::-webkit-scrollbar { display: none; }
+    .wheel-item { height: 36px; line-height: 36px; text-align: center; font-size: 19px; scroll-snap-align: center; color: #bbb; }
+    .wheel-item.center { color: #222; font-weight: bold; }
+    #wheelButtons { text-align: center; margin-top: 14px; }
   </style>
 </head>
 <body>
@@ -45,7 +66,37 @@
   <div id="legend">
     <span><span class="dot" style="background:#ffb703;"></span>デジタルあり一人時間</span>
     <span><span class="dot" style="background:#219ebc;"></span>デジタルなし一人時間</span>
-    <span><span class="dot" style="background:#9acd32;"></span>仕事・学校など</span>  
+    <span><span class="dot" style="background:#9acd32;"></span>仕事・学校など</span>
+  </div>
+
+  <button id="timeAdjustBtn">時刻で調整</button>
+
+  <div id="timeAdjustArea" style="display:none;">
+    <div class="time-row" id="startRow">
+      <span>開始</span>
+      <span id="startDisplay">--:--</span>
+    </div>
+    <div class="time-row" id="endRow">
+      <span>終了</span>
+      <span id="endDisplay">--:--</span>
+    </div>
+    <div style="text-align:center;">
+      <button id="timeAdjustConfirmBtn" disabled>この時間で記録する</button>
+      <button id="timeAdjustCancelBtn">キャンセル</button>
+    </div>
+  </div>
+
+  <div id="wheelPicker" style="display:none;">
+    <div id="wheelTitle"></div>
+    <div class="wheel-wrap">
+      <div class="wheel-highlight"></div>
+      <div class="wheel" id="hourWheel"></div>
+      <div class="wheel" id="minuteWheel"></div>
+    </div>
+    <div id="wheelButtons">
+      <button id="wheelConfirmBtn">決定</button>
+      <button id="wheelCancelBtn">キャンセル</button>
+    </div>
   </div>
 
   <div id="categoryArea" style="display:none;">
@@ -99,6 +150,8 @@
     const timeLabel = document.getElementById('timeLabel');
     const categoryArea = document.getElementById('categoryArea');
     const editArea = document.getElementById('editArea');
+    const timeAdjustArea = document.getElementById('timeAdjustArea');
+    const wheelPicker = document.getElementById('wheelPicker');
     const submitBtn = document.getElementById('submitBtn');
     const detailInput = document.getElementById('detail');
     const closeBtn = document.getElementById('closeBtn');
@@ -174,7 +227,7 @@
     function rangeOverlapsExisting(sh, eh) {
       let sweep = eh - sh;
       if (sweep < 0) sweep += 24;
-      for (let t = 0; t <= sweep; t += 0.25) {
+      for (let t = 0; t <= sweep; t += 1 / 12) {
         const hour = (sh + t) % 24;
         if (savedSegments.some((seg) => isHourInSegment(hour, seg))) return true;
       }
@@ -308,6 +361,7 @@
         b.classList.toggle('selected', b.dataset.category === seg.category);
       });
       categoryArea.style.display = 'none';
+      timeAdjustArea.style.display = 'none';
       editArea.style.display = 'block';
     }
 
@@ -358,6 +412,132 @@
     document.getElementById('editCancelBtn').addEventListener('click', () => {
       editArea.style.display = 'none';
       currentEditSegment = null;
+    });
+
+    // ---- 時刻で細かく調整(ホイールピッカー) ----
+    const ITEM_HEIGHT = 36;
+    const VISIBLE_COUNT = 5;
+    const WHEEL_PAD = ITEM_HEIGHT * Math.floor(VISIBLE_COUNT / 2);
+    const HOURS = Array.from({ length: 24 }, (_, i) => i);
+    const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+    const hourWheel = document.getElementById('hourWheel');
+    const minuteWheel = document.getElementById('minuteWheel');
+
+    function buildWheel(container, values, formatFn) {
+      container.innerHTML = '';
+      const padTop = document.createElement('div');
+      padTop.style.height = WHEEL_PAD + 'px';
+      container.appendChild(padTop);
+      values.forEach((v) => {
+        const item = document.createElement('div');
+        item.className = 'wheel-item';
+        item.textContent = formatFn(v);
+        container.appendChild(item);
+      });
+      const padBottom = document.createElement('div');
+      padBottom.style.height = WHEEL_PAD + 'px';
+      container.appendChild(padBottom);
+    }
+
+    function getWheelIndex(container, values) {
+      const index = Math.round(container.scrollTop / ITEM_HEIGHT);
+      return Math.max(0, Math.min(values.length - 1, index));
+    }
+
+    function scrollWheelTo(container, values, value) {
+      let index = values.indexOf(value);
+      if (index === -1) index = 0;
+      container.scrollTop = index * ITEM_HEIGHT;
+    }
+
+    function highlightCenter(container, values) {
+      const index = getWheelIndex(container, values);
+      const items = container.querySelectorAll('.wheel-item');
+      items.forEach((item, i) => item.classList.toggle('center', i === index));
+    }
+
+    buildWheel(hourWheel, HOURS, (v) => String(v));
+    buildWheel(minuteWheel, MINUTES, (v) => String(v).padStart(2, '0'));
+    hourWheel.addEventListener('scroll', () => highlightCenter(hourWheel, HOURS));
+    minuteWheel.addEventListener('scroll', () => highlightCenter(minuteWheel, MINUTES));
+
+    let wheelTarget = null;
+    let pickedStart = null, pickedEnd = null;
+
+    function nearestFive(m) {
+      return Math.round(m / 5) * 5 % 60;
+    }
+
+    function openWheelPicker(target) {
+      wheelTarget = target;
+      document.getElementById('wheelTitle').textContent = target === 'start' ? '開始時刻' : '終了時刻';
+      const current = target === 'start' ? pickedStart : pickedEnd;
+      const now = new Date();
+      const hh = current !== null ? Math.floor(current) : now.getHours();
+      const mm = current !== null ? nearestFive(Math.round((current - Math.floor(current)) * 60)) : nearestFive(now.getMinutes());
+      scrollWheelTo(hourWheel, HOURS, hh);
+      scrollWheelTo(minuteWheel, MINUTES, mm);
+      highlightCenter(hourWheel, HOURS);
+      highlightCenter(minuteWheel, MINUTES);
+      timeAdjustArea.style.display = 'none';
+      wheelPicker.style.display = 'block';
+    }
+
+    document.getElementById('timeAdjustBtn').addEventListener('click', () => {
+      categoryArea.style.display = 'none';
+      editArea.style.display = 'none';
+      document.getElementById('timeAdjustConfirmBtn').disabled = !(pickedStart !== null && pickedEnd !== null);
+      timeAdjustArea.style.display = 'block';
+    });
+
+    document.getElementById('startRow').addEventListener('click', () => openWheelPicker('start'));
+    document.getElementById('endRow').addEventListener('click', () => openWheelPicker('end'));
+
+    document.getElementById('wheelConfirmBtn').addEventListener('click', () => {
+      const h = HOURS[getWheelIndex(hourWheel, HOURS)];
+      const m = MINUTES[getWheelIndex(minuteWheel, MINUTES)];
+      const value = h + m / 60;
+      if (wheelTarget === 'start') {
+        pickedStart = value;
+        document.getElementById('startDisplay').textContent = `${h}:${String(m).padStart(2, '0')}`;
+      } else {
+        pickedEnd = value;
+        document.getElementById('endDisplay').textContent = `${h}:${String(m).padStart(2, '0')}`;
+      }
+      wheelPicker.style.display = 'none';
+      timeAdjustArea.style.display = 'block';
+      document.getElementById('timeAdjustConfirmBtn').disabled = !(pickedStart !== null && pickedEnd !== null);
+    });
+
+    document.getElementById('wheelCancelBtn').addEventListener('click', () => {
+      wheelPicker.style.display = 'none';
+      timeAdjustArea.style.display = 'block';
+    });
+
+    document.getElementById('timeAdjustCancelBtn').addEventListener('click', () => {
+      pickedStart = null;
+      pickedEnd = null;
+      document.getElementById('startDisplay').textContent = '--:--';
+      document.getElementById('endDisplay').textContent = '--:--';
+      timeAdjustArea.style.display = 'none';
+    });
+
+    document.getElementById('timeAdjustConfirmBtn').addEventListener('click', () => {
+      if (pickedStart === null || pickedEnd === null || pickedStart === pickedEnd) return;
+      if (rangeOverlapsExisting(pickedStart, pickedEnd)) {
+        timeLabel.textContent = 'その時間帯はすでに記録があります。空いている時間を選んでください';
+        return;
+      }
+      startHour = pickedStart;
+      endHour = pickedEnd;
+      arc.setAttribute('d', describeArc(startHour, endHour));
+      timeLabel.textContent = `${formatHour(startHour)} 〜 ${formatHour(endHour)}`;
+      timeAdjustArea.style.display = 'none';
+      pickedStart = null;
+      pickedEnd = null;
+      document.getElementById('startDisplay').textContent = '--:--';
+      document.getElementById('endDisplay').textContent = '--:--';
+      categoryArea.style.display = 'block';
     });
 
     // ---- 過去の記録の読み込み ----
