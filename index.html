@@ -10,13 +10,19 @@
     .category-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 2px solid #ccc; background: white; font-size: 14px; box-sizing: border-box; }
     .category-btn.selected { border-color: #06c755; background: #eafaf0; }
     #timeLabel { font-size: 18px; margin: 12px 0; }
-    #detail { width: 90%; padding: 8px; font-size: 14px; margin: 8px 0; }
+    #detail, #editDetail { width: 90%; padding: 8px; font-size: 14px; margin: 8px 0; }
     #submitBtn { background: #06c755; color: white; border: none; padding: 14px 32px; border-radius: 24px; font-size: 16px; margin-top: 12px; }
     #submitBtn:disabled { background: #ccc; }
     #closeBtn { background: none; color: #888; border: none; padding: 10px; font-size: 14px; margin-top: 20px; text-decoration: underline; }
     #legend { font-size: 12px; margin: 8px 0; color: #555; }
     #legend span { margin: 0 6px; }
     .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+    #editArea { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; }
+    #editTimeLabel { font-weight: bold; margin-bottom: 8px; }
+    #editArea button { padding: 12px 20px; border-radius: 20px; border: none; font-size: 14px; margin: 6px 4px; }
+    #editUpdateBtn { background: #06c755; color: white; }
+    #editDeleteBtn { background: #e74c3c; color: white; }
+    #editCancelBtn { background: #ccc; color: #333; }
   </style>
 </head>
 <body>
@@ -39,7 +45,7 @@
   <div id="legend">
     <span><span class="dot" style="background:#ffb703;"></span>デジタルあり一人時間</span>
     <span><span class="dot" style="background:#219ebc;"></span>デジタルなし一人時間</span>
-    <span><span class="dot" style="background:#adb5bd;"></span>仕事・学校など</span>
+    <span><span class="dot" style="background:#9acd32;"></span>仕事・学校など</span>  
   </div>
 
   <div id="categoryArea" style="display:none;">
@@ -51,10 +57,24 @@
     <button id="submitBtn" disabled>記録する</button>
   </div>
 
+  <div id="editArea" style="display:none;">
+    <div id="editTimeLabel"></div>
+    <div class="category-btn edit-category-btn" data-category="digital_alone">デジタルを触ってた自由な一人時間</div>
+    <div class="category-btn edit-category-btn" data-category="offline_alone">デジタルを触ってない自由な一人時間</div>
+    <div class="category-btn edit-category-btn" data-category="other">仕事・バイト・睡眠・学校・友だちと遊んでた時間</div>
+    <input type="text" id="editDetail" placeholder="具体的に何してた?(例: 散歩、読書)">
+    <br>
+    <button id="editUpdateBtn">更新する</button>
+    <button id="editDeleteBtn">この記録を削除</button>
+    <button id="editCancelBtn">キャンセル</button>
+  </div>
+
   <button id="closeBtn">記録を終えて閉じる</button>
 
   <iframe name="hiddenFrame" style="display:none;"></iframe>
   <form id="saveForm" method="POST" target="hiddenFrame" style="display:none;">
+    <input type="hidden" name="action" id="f_action">
+    <input type="hidden" name="id" id="f_id">
     <input type="hidden" name="userId" id="f_userId">
     <input type="hidden" name="category" id="f_category">
     <input type="hidden" name="startHour" id="f_startHour">
@@ -69,7 +89,7 @@
     const CATEGORY_COLORS = {
       digital_alone: '#ffb703',
       offline_alone: '#219ebc',
-      other: '#adb5bd'
+      other: '#9acd32'
     };
 
     const svg = document.getElementById('clock');
@@ -78,6 +98,7 @@
     const ticksGroup = document.getElementById('ticks');
     const timeLabel = document.getElementById('timeLabel');
     const categoryArea = document.getElementById('categoryArea');
+    const editArea = document.getElementById('editArea');
     const submitBtn = document.getElementById('submitBtn');
     const detailInput = document.getElementById('detail');
     const closeBtn = document.getElementById('closeBtn');
@@ -87,6 +108,10 @@
       `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}の記録`;
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const RADIUS = 120;
+
+    function genId() {
+      return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    }
 
     function hourToAngle(hour) {
       return (hour / 24) * 2 * Math.PI - Math.PI / 2;
@@ -133,16 +158,42 @@
       return `${hh}:${mm.toString().padStart(2, '0')}`;
     }
 
-    function addSavedArc(sh, eh, category) {
+    // ---- 記録済みセグメントの管理(重なり判定・タップ編集のため) ----
+    let savedSegments = [];
+
+    function isHourInSegment(hour, seg) {
+      const s = seg.startHour, e = seg.endHour;
+      if (s <= e) return hour >= s && hour <= e;
+      return hour >= s || hour <= e; // 日をまたぐ場合
+    }
+
+    function findSegmentAtHour(hour) {
+      return savedSegments.find((seg) => isHourInSegment(hour, seg));
+    }
+
+    function rangeOverlapsExisting(sh, eh) {
+      let sweep = eh - sh;
+      if (sweep < 0) sweep += 24;
+      for (let t = 0; t <= sweep; t += 0.25) {
+        const hour = (sh + t) % 24;
+        if (savedSegments.some((seg) => isHourInSegment(hour, seg))) return true;
+      }
+      return false;
+    }
+
+    function addSavedArc(seg) {
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', describeArc(sh, eh));
+      path.setAttribute('d', describeArc(seg.startHour, seg.endHour));
       path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', CATEGORY_COLORS[category] || '#999');
+      path.setAttribute('stroke', CATEGORY_COLORS[seg.category] || '#999');
       path.setAttribute('stroke-width', '24');
       path.setAttribute('stroke-linecap', 'round');
       savedArcsGroup.appendChild(path);
+      seg.pathEl = path;
+      savedSegments.push(seg);
     }
 
+    // ---- 新規記録のドラッグ ----
     let dragging = false, startHour = null, endHour = null;
     function getPoint(e) {
       if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -151,7 +202,14 @@
 
     svg.addEventListener('pointerdown', (e) => {
       const p = getPoint(e);
-      startHour = posToHour(p.x, p.y);
+      const hour = posToHour(p.x, p.y);
+      const hit = findSegmentAtHour(hour);
+      if (hit) {
+        openEditArea(hit);
+        return;
+      }
+      editArea.style.display = 'none';
+      startHour = hour;
       endHour = startHour;
       dragging = true;
       arc.setAttribute('d', describeArc(startHour, endHour));
@@ -167,14 +225,21 @@
       if (!dragging) return;
       dragging = false;
       if (startHour !== null && endHour !== null && startHour !== endHour) {
+        if (rangeOverlapsExisting(startHour, endHour)) {
+          arc.setAttribute('d', '');
+          timeLabel.textContent = 'その時間帯はすでに記録があります。空いている時間を選んでください';
+          startHour = null;
+          endHour = null;
+          return;
+        }
         categoryArea.style.display = 'block';
       }
     });
 
     let selectedCategory = null;
-    document.querySelectorAll('.category-btn').forEach((btn) => {
+    document.querySelectorAll('#categoryArea .category-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.category-btn').forEach((b) => b.classList.remove('selected'));
+        document.querySelectorAll('#categoryArea .category-btn').forEach((b) => b.classList.remove('selected'));
         btn.classList.add('selected');
         selectedCategory = btn.dataset.category;
         submitBtn.disabled = false;
@@ -199,6 +264,9 @@
         timeLabel.textContent = 'ログイン処理中です。少し待ってからもう一度押してください';
         return;
       }
+      const newId = genId();
+      document.getElementById('f_action').value = 'create';
+      document.getElementById('f_id').value = newId;
       document.getElementById('f_userId').value = userId;
       document.getElementById('f_category').value = selectedCategory;
       document.getElementById('f_startHour').value = startHour;
@@ -207,7 +275,7 @@
       document.getElementById('saveForm').submit();
 
       // 記録した時間帯を円グラフに固定表示として残す
-      addSavedArc(startHour, endHour, selectedCategory);
+      addSavedArc({ id: newId, startHour, endHour, category: selectedCategory, detail: detailInput.value });
 
       // 選択状態をリセットして、続けて次の記録ができるようにする
       arc.setAttribute('d', '');
@@ -215,7 +283,7 @@
       endHour = null;
       selectedCategory = null;
       detailInput.value = '';
-      document.querySelectorAll('.category-btn').forEach((b) => b.classList.remove('selected'));
+      document.querySelectorAll('#categoryArea .category-btn').forEach((b) => b.classList.remove('selected'));
       categoryArea.style.display = 'none';
       submitBtn.disabled = true;
       submitBtn.textContent = '記録する';
@@ -226,6 +294,73 @@
       liff.closeWindow();
     });
 
+    // ---- 記録済み部分をタップしたときの詳細・編集 ----
+    let currentEditSegment = null;
+    let editSelectedCategory = null;
+
+    function openEditArea(seg) {
+      currentEditSegment = seg;
+      editSelectedCategory = seg.category;
+      document.getElementById('editTimeLabel').textContent =
+        `${formatHour(seg.startHour)} 〜 ${formatHour(seg.endHour)}`;
+      document.getElementById('editDetail').value = seg.detail || '';
+      document.querySelectorAll('.edit-category-btn').forEach((b) => {
+        b.classList.toggle('selected', b.dataset.category === seg.category);
+      });
+      categoryArea.style.display = 'none';
+      editArea.style.display = 'block';
+    }
+
+    document.querySelectorAll('.edit-category-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.edit-category-btn').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        editSelectedCategory = btn.dataset.category;
+      });
+    });
+
+    document.getElementById('editUpdateBtn').addEventListener('click', () => {
+      if (!currentEditSegment) return;
+      const detail = document.getElementById('editDetail').value;
+      document.getElementById('f_action').value = 'update';
+      document.getElementById('f_id').value = currentEditSegment.id;
+      document.getElementById('f_userId').value = userId;
+      document.getElementById('f_category').value = editSelectedCategory;
+      document.getElementById('f_startHour').value = currentEditSegment.startHour;
+      document.getElementById('f_endHour').value = currentEditSegment.endHour;
+      document.getElementById('f_detail').value = detail;
+      document.getElementById('saveForm').submit();
+
+      currentEditSegment.category = editSelectedCategory;
+      currentEditSegment.detail = detail;
+      currentEditSegment.pathEl.setAttribute('stroke', CATEGORY_COLORS[editSelectedCategory] || '#999');
+
+      editArea.style.display = 'none';
+      timeLabel.textContent = '更新しました';
+      currentEditSegment = null;
+    });
+
+    document.getElementById('editDeleteBtn').addEventListener('click', () => {
+      if (!currentEditSegment) return;
+      document.getElementById('f_action').value = 'delete';
+      document.getElementById('f_id').value = currentEditSegment.id;
+      document.getElementById('f_userId').value = userId;
+      document.getElementById('saveForm').submit();
+
+      currentEditSegment.pathEl.remove();
+      savedSegments = savedSegments.filter((s) => s !== currentEditSegment);
+
+      editArea.style.display = 'none';
+      timeLabel.textContent = '削除しました';
+      currentEditSegment = null;
+    });
+
+    document.getElementById('editCancelBtn').addEventListener('click', () => {
+      editArea.style.display = 'none';
+      currentEditSegment = null;
+    });
+
+    // ---- 過去の記録の読み込み ----
     function loadTodayRecords() {
       timeLabel.textContent = '読み込み中...';
       const url = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${dateStr}&callback=handleTodayRecords`;
@@ -239,7 +374,13 @@
 
     window.handleTodayRecords = function (records) {
       records.forEach((r) => {
-        addSavedArc(Number(r.startHour), Number(r.endHour), r.category);
+        addSavedArc({
+          id: r.id,
+          startHour: Number(r.startHour),
+          endHour: Number(r.endHour),
+          category: r.category,
+          detail: r.detail
+        });
       });
       timeLabel.textContent = '円をドラッグして時間帯を選んでください';
     };
