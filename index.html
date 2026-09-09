@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 16px; background: #faf8f5; }
+    #clock { touch-action: none; user-select: none; }
+    .category-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 2px solid #ccc; background: white; font-size: 14px; box-sizing: border-box; }
+    .category-btn.selected { border-color: #06c755; background: #eafaf0; }
+    #timeLabel { font-size: 18px; margin: 12px 0; }
+    #detail { width: 90%; padding: 8px; font-size: 14px; margin: 8px 0; }
+    #submitBtn { background: #06c755; color: white; border: none; padding: 14px 32px; border-radius: 24px; font-size: 16px; margin-top: 12px; }
+    #submitBtn:disabled { background: #ccc; }
+    #closeBtn { background: none; color: #888; border: none; padding: 10px; font-size: 14px; margin-top: 20px; text-decoration: underline; }
+    #legend { font-size: 12px; margin: 8px 0; color: #555; }
+    #legend span { margin: 0 6px; }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+  </style>
+</head>
+<body>
+  <h3>今日の記録</h3>
+  <div id="timeLabel">円をドラッグして時間帯を選んでください</div>
+
+  <svg id="clock" width="300" height="300" viewBox="0 0 300 300">
+    <circle cx="150" cy="150" r="120" fill="none" stroke="#eee" stroke-width="24"/>
+    <g id="savedArcs"></g>
+    <path id="arc" fill="none" stroke="#06c755" stroke-width="24" stroke-linecap="round"/>
+    <g id="ticks"></g>
+  </svg>
+
+  <div id="legend">
+    <span><span class="dot" style="background:#ffb703;"></span>デジタルあり一人時間</span>
+    <span><span class="dot" style="background:#219ebc;"></span>デジタルなし一人時間</span>
+    <span><span class="dot" style="background:#adb5bd;"></span>仕事・学校など</span>
+  </div>
+
+  <div id="categoryArea" style="display:none;">
+    <div class="category-btn" data-category="digital_alone">デジタルを触ってた自由な一人時間</div>
+    <div class="category-btn" data-category="offline_alone">デジタルを触ってない自由な一人時間</div>
+    <div class="category-btn" data-category="other">仕事・バイト・睡眠・学校・友だちと遊んでた時間</div>
+    <input type="text" id="detail" placeholder="具体的に何してた?(例: 散歩、読書)">
+    <br>
+    <button id="submitBtn" disabled>記録する</button>
+  </div>
+
+  <button id="closeBtn">記録を終えて閉じる</button>
+
+  <iframe name="hiddenFrame" style="display:none;"></iframe>
+  <form id="saveForm" method="POST" target="hiddenFrame" style="display:none;">
+    <input type="hidden" name="userId" id="f_userId">
+    <input type="hidden" name="category" id="f_category">
+    <input type="hidden" name="startHour" id="f_startHour">
+    <input type="hidden" name="endHour" id="f_endHour">
+    <input type="hidden" name="detail" id="f_detail">
+  </form>
+
+  <script>
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzzjmzle-avGL42qkIRQueJOr4yjyNluwxpTWnAaZd_1TJyeUDCqlrW9Luy3QMXvxZzCQ/exec
+';
+    document.getElementById('saveForm').action = GAS_API_URL;
+
+    const CATEGORY_COLORS = {
+      digital_alone: '#ffb703',
+      offline_alone: '#219ebc',
+      other: '#adb5bd'
+    };
+
+    const svg = document.getElementById('clock');
+    const arc = document.getElementById('arc');
+    const savedArcsGroup = document.getElementById('savedArcs');
+    const ticksGroup = document.getElementById('ticks');
+    const timeLabel = document.getElementById('timeLabel');
+    const categoryArea = document.getElementById('categoryArea');
+    const submitBtn = document.getElementById('submitBtn');
+    const detailInput = document.getElementById('detail');
+    const closeBtn = document.getElementById('closeBtn');
+    const CENTER = { x: 150, y: 150 };
+    const RADIUS = 120;
+
+    function hourToAngle(hour) {
+      return (hour / 24) * 2 * Math.PI - Math.PI / 2;
+    }
+
+    for (let h = 0; h < 24; h++) {
+      const angle = hourToAngle(h);
+      const x1 = CENTER.x + Math.cos(angle) * (RADIUS - 10);
+      const y1 = CENTER.y + Math.sin(angle) * (RADIUS - 10);
+      const x2 = CENTER.x + Math.cos(angle) * (RADIUS + 10);
+      const y2 = CENTER.y + Math.sin(angle) * (RADIUS + 10);
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('stroke', '#bbb');
+      ticksGroup.appendChild(line);
+    }
+
+    function posToHour(clientX, clientY) {
+      const rect = svg.getBoundingClientRect();
+      const scale = 300 / rect.width;
+      const x = (clientX - rect.left) * scale - CENTER.x;
+      const y = (clientY - rect.top) * scale - CENTER.y;
+      let angle = Math.atan2(y, x) + Math.PI / 2;
+      if (angle < 0) angle += 2 * Math.PI;
+      const hour = (angle / (2 * Math.PI)) * 24;
+      return Math.round(hour * 4) / 4;
+    }
+
+    function describeArc(sh, eh) {
+      let sweep = eh - sh;
+      if (sweep < 0) sweep += 24;
+      if (sweep === 0) sweep = 0.1;
+      const a1 = hourToAngle(sh), a2 = hourToAngle(sh + sweep);
+      const x1 = CENTER.x + Math.cos(a1) * RADIUS, y1 = CENTER.y + Math.sin(a1) * RADIUS;
+      const x2 = CENTER.x + Math.cos(a2) * RADIUS, y2 = CENTER.y + Math.sin(a2) * RADIUS;
+      const largeArc = sweep > 12 ? 1 : 0;
+      return `M ${x1} ${y1} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${x2} ${y2}`;
+    }
+
+    function formatHour(h) {
+      const hh = Math.floor(h);
+      const mm = Math.round((h - hh) * 60);
+      return `${hh}:${mm.toString().padStart(2, '0')}`;
+    }
+
+    function addSavedArc(sh, eh, category) {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', describeArc(sh, eh));
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', CATEGORY_COLORS[category] || '#999');
+      path.setAttribute('stroke-width', '24');
+      path.setAttribute('stroke-linecap', 'round');
+      savedArcsGroup.appendChild(path);
+    }
+
+    let dragging = false, startHour = null, endHour = null;
+    function getPoint(e) {
+      if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    svg.addEventListener('pointerdown', (e) => {
+      const p = getPoint(e);
+      startHour = posToHour(p.x, p.y);
+      endHour = startHour;
+      dragging = true;
+      arc.setAttribute('d', describeArc(startHour, endHour));
+    });
+    svg.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const p = getPoint(e);
+      endHour = posToHour(p.x, p.y);
+      arc.setAttribute('d', describeArc(startHour, endHour));
+      timeLabel.textContent = `${formatHour(startHour)} 〜 ${formatHour(endHour)}`;
+    });
+    window.addEventListener('pointerup', () => {
+      if (!dragging) return;
+      dragging = false;
+      if (startHour !== null && endHour !== null && startHour !== endHour) {
+        categoryArea.style.display = 'block';
+      }
+    });
+
+    let selectedCategory = null;
+    document.querySelectorAll('.category-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.category-btn').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedCategory = btn.dataset.category;
+        submitBtn.disabled = false;
+      });
+    });
+
+    let userId = null;
+    liff.init({ liffId: '2011303051-VhtUseuB' }).then(() => {
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      return liff.getProfile();
+    }).then((profile) => {
+      if (profile) userId = profile.userId;
+    }).catch((err) => {
+      timeLabel.textContent = 'ログインエラー: ' + err;
+    });
+
+    submitBtn.addEventListener('click', () => {
+      if (!userId || !selectedCategory) {
+        timeLabel.textContent = 'ログイン処理中です。少し待ってからもう一度押してください';
+        return;
+      }
+      document.getElementById('f_userId').value = userId;
+      document.getElementById('f_category').value = selectedCategory;
+      document.getElementById('f_startHour').value = startHour;
+      document.getElementById('f_endHour').value = endHour;
+      document.getElementById('f_detail').value = detailInput.value;
+      document.getElementById('saveForm').submit();
+
+      // 記録した時間帯を円グラフに固定表示として残す
+      addSavedArc(startHour, endHour, selectedCategory);
+
+      // 選択状態をリセットして、続けて次の記録ができるようにする
+      arc.setAttribute('d', '');
+      startHour = null;
+      endHour = null;
+      selectedCategory = null;
+      detailInput.value = '';
+      document.querySelectorAll('.category-btn').forEach((b) => b.classList.remove('selected'));
+      categoryArea.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.textContent = '記録する';
+      timeLabel.textContent = '記録しました!続けて円をドラッグすると追加できます';
+    });
+
+    closeBtn.addEventListener('click', () => {
+      liff.closeWindow();
+    });
+  </script>
+</body>
+</html>
