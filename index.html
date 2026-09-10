@@ -60,6 +60,15 @@
     .cal-day.selected { background: #06c755; color: white; }
     #calendarArea #calTodayBtn, #calendarArea #calCloseBtn { padding: 10px 18px; border-radius: 20px; border: none; font-size: 13px; margin: 6px 4px; background: #ccc; color: #333; }
 
+    #roomTabBtn { background: none; border: 1px solid #888; color: #555; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; margin-left: 6px; }
+    #roomView { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
+    #roomView h4 { text-align: center; margin: 0 0 12px; font-size: 14px; color: #555; }
+    .room-member-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+    .room-member-row.me { border-color: #06c755; background: #eafaf0; }
+    .room-member-name { color: #333; }
+    .room-member-title { font-weight: bold; color: #06c755; text-align: right; }
+    #roomViewCloseBtn { display: block; margin: 12px auto 0; padding: 10px 18px; border-radius: 20px; border: none; font-size: 13px; background: #ccc; color: #333; }
+
     #clock.loading { visibility: hidden; }
 
     #summaryArea { border-top: 1px solid #ddd; margin-top: 24px; padding-top: 16px; padding-bottom: 8px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
@@ -136,6 +145,7 @@
 
   <button id="timeAdjustBtn">時刻で調整</button>
   <button id="calendarBtn">📅 日付を選ぶ</button>
+  <button id="roomTabBtn" style="display:none;">🏠 部屋</button>
 
   <div id="calendarArea" style="display:none;">
     <div id="calHeader">
@@ -151,6 +161,12 @@
       <button id="calTodayBtn">今日に戻る</button>
       <button id="calCloseBtn">閉じる</button>
     </div>
+  </div>
+
+  <div id="roomView" style="display:none;">
+    <h4 id="roomViewTitle">部屋</h4>
+    <div id="roomMemberList"></div>
+    <button id="roomViewCloseBtn">閉じる</button>
   </div>
 
   <div id="timeAdjustArea" style="display:none;">
@@ -543,10 +559,80 @@
       editArea.style.display = 'none';
       timeAdjustArea.style.display = 'none';
       wheelPicker.style.display = 'none';
+      document.getElementById('roomView').style.display = 'none';
       calViewYear = selectedDate.getFullYear();
       calViewMonth = selectedDate.getMonth();
       renderCalendar();
       calendarArea.style.display = 'block';
+    });
+
+    // ---- 部屋のメンバー一覧・暫定ランキング ----
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function formatAnnounceDateTime(iso) {
+      const d = new Date(iso);
+      return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function renderRoomView(data) {
+      const list = document.getElementById('roomMemberList');
+      if (!data) {
+        document.getElementById('roomViewTitle').textContent = '部屋';
+        list.innerHTML = '<div style="text-align:center;color:#e74c3c;">部屋の情報を取得できませんでした</div>';
+        return;
+      }
+      document.getElementById('roomViewTitle').textContent = `「${escapeHtml(data.roomCode)}」部屋のメンバー`;
+      list.innerHTML = '';
+
+      const notice = document.createElement('div');
+      notice.style.cssText = 'text-align:center;color:#888;font-size:12px;margin-bottom:10px;';
+      notice.textContent = data.announced
+        ? `集計期間: ${data.periodLabel}`
+        : `集計期間: ${data.periodLabel}(称号の発表は ${formatAnnounceDateTime(data.announceAt)} です)`;
+      list.appendChild(notice);
+
+      data.members.forEach((m) => {
+        const row = document.createElement('div');
+        row.className = 'room-member-row' + (m.isMe ? ' me' : '');
+        const titleHtml = data.announced ? `<span class="room-member-title">${escapeHtml(m.title)}</span>` : '';
+        row.innerHTML = `<span class="room-member-name">${escapeHtml(m.nickname)}${m.isMe ? '(自分)' : ''}</span>${titleHtml}`;
+        list.appendChild(row);
+      });
+    }
+
+    let roomRequestCounter = 0;
+    function loadRoomView() {
+      document.getElementById('roomMemberList').innerHTML = '<div style="text-align:center;color:#888;">読み込み中...</div>';
+      roomRequestCounter += 1;
+      const cbName = 'handleRoomView_' + roomRequestCounter;
+      window[cbName] = function (data) {
+        delete window[cbName];
+        renderRoomView(data);
+      };
+      const url = `${GAS_API_URL}?type=room&userId=${encodeURIComponent(userId)}&callback=${cbName}`;
+      const script = document.createElement('script');
+      script.src = url;
+      script.onerror = function () {
+        delete window[cbName];
+        document.getElementById('roomMemberList').innerHTML = '<div style="text-align:center;color:#e74c3c;">読み込みに失敗しました</div>';
+      };
+      document.body.appendChild(script);
+    }
+
+    document.getElementById('roomTabBtn').addEventListener('click', () => {
+      categoryArea.style.display = 'none';
+      editArea.style.display = 'none';
+      timeAdjustArea.style.display = 'none';
+      wheelPicker.style.display = 'none';
+      calendarArea.style.display = 'none';
+      loadRoomView();
+      document.getElementById('roomView').style.display = 'block';
+    });
+
+    document.getElementById('roomViewCloseBtn').addEventListener('click', () => {
+      document.getElementById('roomView').style.display = 'none';
     });
 
     function switchToDate(d) {
@@ -615,6 +701,7 @@
       modeGate.style.display = 'none';
       roomSetupArea.style.display = 'none';
       mainApp.style.display = 'block';
+      document.getElementById('roomTabBtn').style.display = appMode === 'room' ? 'inline-block' : 'none';
       loadForSelectedDate();
     }
 
