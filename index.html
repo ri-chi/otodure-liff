@@ -59,6 +59,14 @@
     .cal-day.today { border: 1px solid #06c755; }
     .cal-day.selected { background: #06c755; color: white; }
     #calendarArea #calTodayBtn, #calendarArea #calCloseBtn { padding: 10px 18px; border-radius: 20px; border: none; font-size: 13px; margin: 6px 4px; background: #ccc; color: #333; }
+
+    #clock.loading { visibility: hidden; }
+
+    #summaryArea { border-top: 1px solid #ddd; margin-top: 24px; padding-top: 16px; padding-bottom: 8px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
+    #summaryArea h4 { text-align: center; margin: 0 0 12px; font-size: 14px; color: #555; }
+    .summary-row { display: flex; align-items: center; padding: 10px 12px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+    .summary-row .summary-label { flex: 1; margin-left: 6px; color: #555; }
+    .summary-row .summary-value { font-weight: bold; color: #222; }
   </style>
 </head>
 <body>
@@ -71,7 +79,7 @@
   <h3 id="dateHeading">記録</h3>
   <div id="timeLabel">円をドラッグして時間帯を選んでください</div>
 
-  <svg id="clock" width="300" height="300" viewBox="0 0 300 300">
+  <svg id="clock" class="loading" width="300" height="300" viewBox="0 0 300 300">
     <circle cx="150" cy="150" r="120" fill="none" stroke="#eee" stroke-width="24"/>
     <g id="savedArcs"></g>
     <path id="arc" fill="none" stroke="#06c755" stroke-width="24" stroke-linecap="round"/>
@@ -161,6 +169,25 @@
 
   <button id="closeBtn">記録を終えて閉じる</button>
 
+  <div id="summaryArea">
+    <h4>この日の内訳</h4>
+    <div class="summary-row">
+      <span class="dot" style="background:#ffb703;"></span>
+      <span class="summary-label">デジタルあり一人時間</span>
+      <span class="summary-value" id="summary-digital_alone-value">0分</span>
+    </div>
+    <div class="summary-row">
+      <span class="dot" style="background:#219ebc;"></span>
+      <span class="summary-label">デジタルなし一人時間</span>
+      <span class="summary-value" id="summary-offline_alone-value">0分</span>
+    </div>
+    <div class="summary-row">
+      <span class="dot" style="background:#9acd32;"></span>
+      <span class="summary-label">仕事・学校など</span>
+      <span class="summary-value" id="summary-other-value">0分</span>
+    </div>
+  </div>
+
   <iframe name="hiddenFrame" style="display:none;"></iframe>
   <form id="saveForm" method="POST" target="hiddenFrame" style="display:none;">
     <input type="hidden" name="action" id="f_action">
@@ -195,6 +222,37 @@
     const submitBtn = document.getElementById('submitBtn');
     const detailInput = document.getElementById('detail');
     const closeBtn = document.getElementById('closeBtn');
+
+    // ---- 読み込み中は円グラフを隠す ----
+    function hideClock() {
+      svg.classList.add('loading');
+    }
+    function showClock() {
+      svg.classList.remove('loading');
+    }
+
+    // ---- その日の内訳(カテゴリーごとの合計時間) ----
+    function formatDuration(hours) {
+      const totalMinutes = Math.round(hours * 60);
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      if (h === 0) return `${m}分`;
+      if (m === 0) return `${h}時間`;
+      return `${h}時間${m}分`;
+    }
+    function updateSummary() {
+      const totals = { digital_alone: 0, offline_alone: 0, other: 0 };
+      savedSegments.forEach((seg) => {
+        let sweep = seg.endHour - seg.startHour;
+        if (sweep < 0) sweep += 24;
+        if (totals[seg.category] !== undefined) totals[seg.category] += sweep;
+      });
+      Object.keys(totals).forEach((cat) => {
+        const el = document.getElementById('summary-' + cat + '-value');
+        if (el) el.textContent = formatDuration(totals[cat]);
+      });
+    }
+
     const CENTER = { x: 150, y: 150 };
     const today = new Date();
     function toDateStr(d) {
@@ -288,6 +346,7 @@
       savedArcsGroup.appendChild(path);
       seg.pathEl = path;
       savedSegments.push(seg);
+      updateSummary();
     }
 
     // ---- 新規記録のドラッグ ----
@@ -460,6 +519,8 @@
       endHour = null;
       savedArcsGroup.innerHTML = '';
       savedSegments = [];
+      updateSummary();
+      hideClock();
       loadForSelectedDate();
     }
 
@@ -477,6 +538,7 @@
           });
         });
         timeLabel.textContent = DEFAULT_LABEL;
+        showClock();
       }
       loadTodayRecords(!hasCache);
     }
@@ -593,6 +655,7 @@
       currentEditSegment.endHour = newEnd;
       currentEditSegment.pathEl.setAttribute('stroke', CATEGORY_COLORS[editSelectedCategory] || '#999');
       currentEditSegment.pathEl.setAttribute('d', describeArc(newStart, newEnd));
+      updateSummary();
 
       editArea.style.display = 'none';
       timeLabel.textContent = '更新しました';
@@ -608,6 +671,7 @@
 
       currentEditSegment.pathEl.remove();
       savedSegments = savedSegments.filter((s) => s !== currentEditSegment);
+      updateSummary();
 
       editArea.style.display = 'none';
       timeLabel.textContent = '削除しました';
@@ -769,7 +833,10 @@
     let requestCounter = 0;
 
     function loadTodayRecords(showLoadingText) {
-      if (showLoadingText) timeLabel.textContent = '読み込み中...';
+      if (showLoadingText) {
+        timeLabel.textContent = '読み込み中...';
+        hideClock();
+      }
       const requestedDate = dateStr;
       requestCounter += 1;
       const cbName = 'handleTodayRecords_' + requestCounter;
@@ -790,6 +857,7 @@
           });
         });
         timeLabel.textContent = DEFAULT_LABEL;
+        showClock();
       };
       const url = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${requestedDate}&callback=${cbName}`;
       const script = document.createElement('script');
@@ -798,6 +866,7 @@
         delete window[cbName];
         if (requestedDate === dateStr) {
           timeLabel.textContent = '記録の読み込みに失敗しました';
+          showClock(); // 空でも操作できるように円は表示しておく
         }
       };
       document.body.appendChild(script);
