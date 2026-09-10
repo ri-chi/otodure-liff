@@ -67,6 +67,21 @@
     .summary-row { display: flex; align-items: center; padding: 10px 12px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
     .summary-row .summary-label { flex: 1; margin-left: 6px; color: #555; }
     .summary-row .summary-value { font-weight: bold; color: #222; }
+
+    #initialLoading { padding: 60px 16px; color: #888; font-size: 15px; }
+
+    #modeGate, #roomSetupArea { max-width: 300px; margin: 40px auto; text-align: center; }
+    #modeGate h3, #roomSetupArea h3 { font-size: 17px; margin-bottom: 24px; }
+    .mode-choice-btn { display: block; width: 100%; padding: 18px; margin: 12px 0; border-radius: 12px; border: 2px solid #ddd; background: white; font-size: 15px; text-align: left; box-sizing: border-box; }
+    .mode-choice-btn .mode-title { font-weight: bold; font-size: 16px; display: block; margin-bottom: 4px; }
+    .mode-choice-btn .mode-desc { color: #888; font-size: 12px; display: block; }
+    .mode-choice-btn:active { border-color: #06c755; background: #eafaf0; }
+    #roomSetupArea input { width: 90%; padding: 10px; font-size: 14px; margin: 8px 0; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+    #roomSetupArea button { padding: 12px 24px; border-radius: 20px; border: none; font-size: 14px; margin: 10px 4px; }
+    #roomJoinBtn { background: #06c755; color: white; }
+    #roomBackBtn { background: #ccc; color: #333; }
+    #roomSetupError { color: #e74c3c; font-size: 12px; min-height: 16px; margin-top: 4px; }
+    #changeModeBtn { background: none; color: #888; border: none; padding: 10px; font-size: 12px; margin-top: 10px; text-decoration: underline; display: block; margin-left: auto; margin-right: auto; }
   </style>
 </head>
 <body>
@@ -76,6 +91,33 @@
       if (el) el.textContent = 'JSエラー: ' + message + ' (行:' + lineno + ')';
     };
   </script>
+
+  <div id="initialLoading">読み込み中...</div>
+
+  <div id="modeGate" style="display:none;">
+    <h3>使い方を選んでください</h3>
+    <div class="mode-choice-btn" id="soloModeBtn">
+      <span class="mode-title">時計簿として使う</span>
+      <span class="mode-desc">自分だけで記録・振り返りをする一人モード</span>
+    </div>
+    <div class="mode-choice-btn" id="roomModeBtn">
+      <span class="mode-title">合言葉で部屋に入る</span>
+      <span class="mode-desc">同じ合言葉を入力した友だちと部屋を作る(ランキング機能など)</span>
+    </div>
+  </div>
+
+  <div id="roomSetupArea" style="display:none;">
+    <h3>部屋に入る</h3>
+    <input type="text" id="roomCodeInput" placeholder="合言葉" maxlength="30">
+    <input type="text" id="nicknameInput" placeholder="ニックネーム" maxlength="20">
+    <div id="roomSetupError"></div>
+    <div>
+      <button id="roomJoinBtn">この部屋に入る</button>
+      <button id="roomBackBtn">戻る</button>
+    </div>
+  </div>
+
+  <div id="mainApp" style="display:none;">
   <h3 id="dateHeading">記録</h3>
   <div id="timeLabel">円をドラッグして時間帯を選んでください</div>
 
@@ -89,7 +131,7 @@
   <div id="legend">
     <span><span class="dot" style="background:#ffb703;"></span>デジタルあり一人時間</span>
     <span><span class="dot" style="background:#219ebc;"></span>デジタルなし一人時間</span>
-    <span><span class="dot" style="background:#9acd32;"></span>仕事・学校・睡眠など</span>
+    <span><span class="dot" style="background:#9acd32;"></span>仕事・学校など</span>
   </div>
 
   <button id="timeAdjustBtn">時刻で調整</button>
@@ -183,9 +225,12 @@
     </div>
     <div class="summary-row">
       <span class="dot" style="background:#9acd32;"></span>
-      <span class="summary-label">仕事・学校・睡眠など</span>
+      <span class="summary-label">仕事・学校など</span>
       <span class="summary-value" id="summary-other-value">0分</span>
     </div>
+  </div>
+
+  <button id="changeModeBtn">使い方の設定を変更</button>
   </div>
 
   <iframe name="hiddenFrame" style="display:none;"></iframe>
@@ -198,6 +243,9 @@
     <input type="hidden" name="endHour" id="f_endHour">
     <input type="hidden" name="detail" id="f_detail">
     <input type="hidden" name="date" id="f_date">
+    <input type="hidden" name="mode" id="f_mode">
+    <input type="hidden" name="roomCode" id="f_roomCode">
+    <input type="hidden" name="nickname" id="f_nickname">
   </form>
 
   <script>
@@ -543,20 +591,115 @@
       loadTodayRecords(!hasCache);
     }
 
+    // ---- 部屋選択(時計簿 or 合言葉) ----
+    const initialLoading = document.getElementById('initialLoading');
+    const modeGate = document.getElementById('modeGate');
+    const roomSetupArea = document.getElementById('roomSetupArea');
+    const mainApp = document.getElementById('mainApp');
+    const roomSetupError = document.getElementById('roomSetupError');
+    const roomCodeInput = document.getElementById('roomCodeInput');
+    const nicknameInput = document.getElementById('nicknameInput');
+    let appMode = null, roomCode = null, nickname = null;
+
+    function showGate() {
+      initialLoading.style.display = 'none';
+      mainApp.style.display = 'none';
+      roomSetupArea.style.display = 'none';
+      roomCodeInput.value = roomCode || '';
+      nicknameInput.value = nickname || '';
+      modeGate.style.display = 'block';
+    }
+
+    function enterApp() {
+      initialLoading.style.display = 'none';
+      modeGate.style.display = 'none';
+      roomSetupArea.style.display = 'none';
+      mainApp.style.display = 'block';
+      loadForSelectedDate();
+    }
+
+    function saveUserSettings(mode, rc, nick) {
+      appMode = mode;
+      roomCode = rc || '';
+      nickname = nick || '';
+      document.getElementById('f_action').value = 'setUser';
+      document.getElementById('f_userId').value = userId;
+      document.getElementById('f_mode').value = appMode;
+      document.getElementById('f_roomCode').value = roomCode;
+      document.getElementById('f_nickname').value = nickname;
+      document.getElementById('saveForm').submit();
+    }
+
+    function checkUserSettings() {
+      const cbName = 'handleUserSettings_' + Date.now();
+      window[cbName] = function (settings) {
+        delete window[cbName];
+        if (settings && settings.mode) {
+          appMode = settings.mode;
+          roomCode = settings.roomCode || '';
+          nickname = settings.nickname || '';
+          enterApp();
+        } else {
+          showGate();
+        }
+      };
+      const url = `${GAS_API_URL}?type=user&userId=${encodeURIComponent(userId)}&callback=${cbName}`;
+      const script = document.createElement('script');
+      script.src = url;
+      script.onerror = function () {
+        delete window[cbName];
+        showGate(); // 設定の取得に失敗した場合は選択からやり直してもらう
+      };
+      document.body.appendChild(script);
+    }
+
+    document.getElementById('soloModeBtn').addEventListener('click', () => {
+      saveUserSettings('solo', '', '');
+      enterApp();
+    });
+
+    document.getElementById('roomModeBtn').addEventListener('click', () => {
+      roomSetupError.textContent = '';
+      roomCodeInput.value = roomCode || '';
+      nicknameInput.value = nickname || '';
+      modeGate.style.display = 'none';
+      roomSetupArea.style.display = 'block';
+    });
+
+    document.getElementById('roomBackBtn').addEventListener('click', () => {
+      roomSetupArea.style.display = 'none';
+      modeGate.style.display = 'block';
+    });
+
+    document.getElementById('roomJoinBtn').addEventListener('click', () => {
+      const rc = roomCodeInput.value.trim();
+      const nick = nicknameInput.value.trim();
+      if (!rc || !nick) {
+        roomSetupError.textContent = '合言葉とニックネームの両方を入力してください';
+        return;
+      }
+      saveUserSettings('room', rc, nick);
+      enterApp();
+    });
+
+    document.getElementById('changeModeBtn').addEventListener('click', () => {
+      showGate();
+    });
+
     liff.init({ liffId: '2011303051-VhtUseuB' }).then(() => {
       if (!liff.isLoggedIn()) { liff.login(); return; }
       const idToken = liff.getDecodedIDToken && liff.getDecodedIDToken();
       if (idToken && idToken.sub) {
         userId = idToken.sub;
-        loadForSelectedDate();
+        checkUserSettings();
         return;
       }
       return liff.getProfile().then((profile) => {
         userId = profile.userId;
-        loadForSelectedDate();
+        checkUserSettings();
       });
     }).catch((err) => {
-      timeLabel.textContent = 'ログインエラー: ' + err;
+      initialLoading.textContent = 'ログインエラー: ' + err;
     });
 
     submitBtn.addEventListener('click', () => {
