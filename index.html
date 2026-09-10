@@ -44,6 +44,21 @@
     .wheel-item { height: 36px; line-height: 36px; text-align: center; font-size: 19px; scroll-snap-align: center; color: #bbb; }
     .wheel-item.center { color: #222; font-weight: bold; }
     #wheelButtons { text-align: center; margin-top: 14px; }
+
+    #calendarBtn { background: none; border: 1px solid #888; color: #555; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; margin-left: 6px; }
+
+    #calendarArea { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; max-width: 280px; margin-left: auto; margin-right: auto; }
+    #calHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    #calHeader button { background: none; border: none; font-size: 20px; color: #06c755; padding: 4px 12px; }
+    #calMonthLabel { font-weight: bold; font-size: 15px; }
+    #calWeekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; color: #888; margin-bottom: 4px; }
+    #calGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-day { text-align: center; padding: 8px 0; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .cal-day.empty { visibility: hidden; }
+    .cal-day.disabled { color: #ccc; cursor: default; }
+    .cal-day.today { border: 1px solid #06c755; }
+    .cal-day.selected { background: #06c755; color: white; }
+    #calendarArea #calTodayBtn, #calendarArea #calCloseBtn { padding: 10px 18px; border-radius: 20px; border: none; font-size: 13px; margin: 6px 4px; background: #ccc; color: #333; }
   </style>
 </head>
 <body>
@@ -70,6 +85,23 @@
   </div>
 
   <button id="timeAdjustBtn">時刻で調整</button>
+  <button id="calendarBtn">📅 日付を選ぶ</button>
+
+  <div id="calendarArea" style="display:none;">
+    <div id="calHeader">
+      <button id="calPrevBtn">‹</button>
+      <span id="calMonthLabel"></span>
+      <button id="calNextBtn">›</button>
+    </div>
+    <div id="calWeekdays">
+      <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+    </div>
+    <div id="calGrid"></div>
+    <div style="text-align:center;">
+      <button id="calTodayBtn">今日に戻る</button>
+      <button id="calCloseBtn">閉じる</button>
+    </div>
+  </div>
 
   <div id="timeAdjustArea" style="display:none;">
     <div class="time-row" id="startRow">
@@ -138,6 +170,7 @@
     <input type="hidden" name="startHour" id="f_startHour">
     <input type="hidden" name="endHour" id="f_endHour">
     <input type="hidden" name="detail" id="f_detail">
+    <input type="hidden" name="date" id="f_date">
   </form>
 
   <script>
@@ -164,9 +197,13 @@
     const closeBtn = document.getElementById('closeBtn');
     const CENTER = { x: 150, y: 150 };
     const today = new Date();
+    function toDateStr(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    let selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let dateStr = toDateStr(selectedDate);
     document.getElementById('dateHeading').textContent =
-      `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}の記録`;
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      `${selectedDate.getFullYear()}/${selectedDate.getMonth() + 1}/${selectedDate.getDate()}の記録`;
     const RADIUS = 120;
 
     function genId() {
@@ -307,14 +344,155 @@
     });
 
     let userId = null;
+    const DEFAULT_LABEL = '円をドラッグして時間帯を選んでください';
+
+    // ---- 日ごとの記録のキャッシュ(再読み込みを速く感じさせるため) ----
+    function cacheKey(uid, ds) {
+      return 'otodure_records_' + uid + '_' + ds;
+    }
+    function loadFromCache(uid, ds) {
+      try {
+        const raw = localStorage.getItem(cacheKey(uid, ds));
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    function saveToCache(uid, records, ds) {
+      try {
+        localStorage.setItem(cacheKey(uid, ds), JSON.stringify(records));
+      } catch (e) {
+        // 保存できない環境ではキャッシュを諦めるだけで、通常の読み込みは動く
+      }
+    }
+
+    // ---- 他の日の記録を見る(カレンダー) ----
+    const calendarBtn = document.getElementById('calendarBtn');
+    const calendarArea = document.getElementById('calendarArea');
+    const calGrid = document.getElementById('calGrid');
+    const calMonthLabel = document.getElementById('calMonthLabel');
+    let calViewYear = selectedDate.getFullYear();
+    let calViewMonth = selectedDate.getMonth();
+
+    function isSameDate(a, b) {
+      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    }
+    function isFutureDate(d) {
+      const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      return dd.getTime() > t.getTime();
+    }
+
+    function renderCalendar() {
+      calMonthLabel.textContent = `${calViewYear}年${calViewMonth + 1}月`;
+      calGrid.innerHTML = '';
+      const firstDay = new Date(calViewYear, calViewMonth, 1);
+      const startWeekday = firstDay.getDay();
+      const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+      for (let i = 0; i < startWeekday; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'cal-day empty';
+        calGrid.appendChild(empty);
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const cellDate = new Date(calViewYear, calViewMonth, d);
+        const cell = document.createElement('div');
+        cell.className = 'cal-day';
+        cell.textContent = String(d);
+        if (isSameDate(cellDate, today)) cell.classList.add('today');
+        if (isSameDate(cellDate, selectedDate)) cell.classList.add('selected');
+        if (isFutureDate(cellDate)) {
+          cell.classList.add('disabled');
+        } else {
+          cell.addEventListener('click', () => {
+            switchToDate(cellDate);
+            calendarArea.style.display = 'none';
+          });
+        }
+        calGrid.appendChild(cell);
+      }
+    }
+
+    document.getElementById('calPrevBtn').addEventListener('click', () => {
+      calViewMonth -= 1;
+      if (calViewMonth < 0) { calViewMonth = 11; calViewYear -= 1; }
+      renderCalendar();
+    });
+    document.getElementById('calNextBtn').addEventListener('click', () => {
+      calViewMonth += 1;
+      if (calViewMonth > 11) { calViewMonth = 0; calViewYear += 1; }
+      renderCalendar();
+    });
+    document.getElementById('calTodayBtn').addEventListener('click', () => {
+      switchToDate(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+      calendarArea.style.display = 'none';
+    });
+    document.getElementById('calCloseBtn').addEventListener('click', () => {
+      calendarArea.style.display = 'none';
+    });
+
+    calendarBtn.addEventListener('click', () => {
+      categoryArea.style.display = 'none';
+      editArea.style.display = 'none';
+      timeAdjustArea.style.display = 'none';
+      wheelPicker.style.display = 'none';
+      calViewYear = selectedDate.getFullYear();
+      calViewMonth = selectedDate.getMonth();
+      renderCalendar();
+      calendarArea.style.display = 'block';
+    });
+
+    function switchToDate(d) {
+      if (!userId) {
+        timeLabel.textContent = 'ログイン処理中です。少し待ってからもう一度お試しください';
+        return;
+      }
+      selectedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      dateStr = toDateStr(selectedDate);
+      document.getElementById('dateHeading').textContent =
+        `${selectedDate.getFullYear()}/${selectedDate.getMonth() + 1}/${selectedDate.getDate()}の記録`;
+      categoryArea.style.display = 'none';
+      editArea.style.display = 'none';
+      timeAdjustArea.style.display = 'none';
+      wheelPicker.style.display = 'none';
+      arc.setAttribute('d', '');
+      startHour = null;
+      endHour = null;
+      savedArcsGroup.innerHTML = '';
+      savedSegments = [];
+      loadForSelectedDate();
+    }
+
+    function loadForSelectedDate() {
+      const cached = loadFromCache(userId, dateStr);
+      const hasCache = !!(cached && cached.length);
+      if (hasCache) {
+        cached.forEach((r) => {
+          addSavedArc({
+            id: r.id,
+            startHour: Number(r.startHour),
+            endHour: Number(r.endHour),
+            category: r.category,
+            detail: r.detail
+          });
+        });
+        timeLabel.textContent = DEFAULT_LABEL;
+      }
+      loadTodayRecords(!hasCache);
+    }
+
     liff.init({ liffId: '2011303051-VhtUseuB' }).then(() => {
       if (!liff.isLoggedIn()) { liff.login(); return; }
-      return liff.getProfile();
-    }).then((profile) => {
-      if (profile) {
-        userId = profile.userId;
-        loadTodayRecords();
+      const idToken = liff.getDecodedIDToken && liff.getDecodedIDToken();
+      if (idToken && idToken.sub) {
+        userId = idToken.sub;
+        loadForSelectedDate();
+        return;
       }
+      return liff.getProfile().then((profile) => {
+        userId = profile.userId;
+        loadForSelectedDate();
+      });
     }).catch((err) => {
       timeLabel.textContent = 'ログインエラー: ' + err;
     });
@@ -332,6 +510,7 @@
       document.getElementById('f_startHour').value = startHour;
       document.getElementById('f_endHour').value = endHour;
       document.getElementById('f_detail').value = detailInput.value;
+      document.getElementById('f_date').value = dateStr;
       document.getElementById('saveForm').submit();
 
       // 記録した時間帯を円グラフに固定表示として残す
@@ -585,30 +764,44 @@
       categoryArea.style.display = 'block';
     });
 
-    // ---- 過去の記録の読み込み ----
-    function loadTodayRecords() {
-      timeLabel.textContent = '読み込み中...';
-      const url = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${dateStr}&callback=handleTodayRecords`;
+    // ---- 記録の読み込み(表示中の日付ぶん) ----
+    // 日付をすばやく切り替えても取り違えないよう、リクエストごとに専用のコールバック名を使う
+    let requestCounter = 0;
+
+    function loadTodayRecords(showLoadingText) {
+      if (showLoadingText) timeLabel.textContent = '読み込み中...';
+      const requestedDate = dateStr;
+      requestCounter += 1;
+      const cbName = 'handleTodayRecords_' + requestCounter;
+      window[cbName] = function (records) {
+        saveToCache(userId, records, requestedDate);
+        delete window[cbName];
+        if (requestedDate !== dateStr) return; // その間に別の日に切り替えていたら描画しない
+        // キャッシュ表示と実際のデータがズレないよう、最新のサーバーデータで描き直す
+        savedArcsGroup.innerHTML = '';
+        savedSegments = [];
+        records.forEach((r) => {
+          addSavedArc({
+            id: r.id,
+            startHour: Number(r.startHour),
+            endHour: Number(r.endHour),
+            category: r.category,
+            detail: r.detail
+          });
+        });
+        timeLabel.textContent = DEFAULT_LABEL;
+      };
+      const url = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${requestedDate}&callback=${cbName}`;
       const script = document.createElement('script');
       script.src = url;
       script.onerror = function () {
-        timeLabel.textContent = '記録の読み込みに失敗しました';
+        delete window[cbName];
+        if (requestedDate === dateStr) {
+          timeLabel.textContent = '記録の読み込みに失敗しました';
+        }
       };
       document.body.appendChild(script);
     }
-
-    window.handleTodayRecords = function (records) {
-      records.forEach((r) => {
-        addSavedArc({
-          id: r.id,
-          startHour: Number(r.startHour),
-          endHour: Number(r.endHour),
-          category: r.category,
-          detail: r.detail
-        });
-      });
-      timeLabel.textContent = '円をドラッグして時間帯を選んでください';
-    };
   </script>
 </body>
 </html>
