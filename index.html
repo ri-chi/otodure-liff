@@ -980,7 +980,12 @@
     function openWheelPicker(target) {
       wheelTarget = target;
       document.getElementById('wheelTitle').textContent = WHEEL_TITLES[target];
-      const current = currentWheelValue(target);
+      let current = currentWheelValue(target);
+      // 終了時刻を初めて開くときは「今」ではなく開始時刻の30分後を初期値にする。
+      // 開始・終了の両方が「今」のままだと、スクロールせずに決定した場合に時刻が完全に一致してしまうため。
+      if (current === null && target === 'end' && pickedStart !== null) {
+        current = (pickedStart + 0.5) % 24;
+      }
       const now = new Date();
       const hh = current !== null ? Math.floor(current) : now.getHours();
       const mm = current !== null ? nearestFive(Math.round((current - Math.floor(current)) * 60)) : nearestFive(now.getMinutes());
@@ -997,7 +1002,7 @@
     document.getElementById('timeAdjustBtn').addEventListener('click', () => {
       categoryArea.style.display = 'none';
       editArea.style.display = 'none';
-      document.getElementById('timeAdjustConfirmBtn').disabled = !(pickedStart !== null && pickedEnd !== null);
+      document.getElementById('timeAdjustConfirmBtn').disabled = !(pickedStart !== null && pickedEnd !== null && pickedStart !== pickedEnd);
       timeAdjustArea.style.display = 'block';
     });
 
@@ -1024,7 +1029,7 @@
       }
       wheelPicker.style.display = 'none';
       wheelReturnPanel.style.display = 'block';
-      document.getElementById('timeAdjustConfirmBtn').disabled = !(pickedStart !== null && pickedEnd !== null);
+      document.getElementById('timeAdjustConfirmBtn').disabled = !(pickedStart !== null && pickedEnd !== null && pickedStart !== pickedEnd);
     });
 
     document.getElementById('wheelCancelBtn').addEventListener('click', () => {
@@ -1041,7 +1046,11 @@
     });
 
     document.getElementById('timeAdjustConfirmBtn').addEventListener('click', () => {
-      if (pickedStart === null || pickedEnd === null || pickedStart === pickedEnd) return;
+      if (pickedStart === null || pickedEnd === null) return;
+      if (pickedStart === pickedEnd) {
+        timeLabel.textContent = '開始と終了の時刻が同じです。終了時刻を変更してください';
+        return;
+      }
       if (rangeOverlapsExisting(pickedStart, pickedEnd)) {
         timeLabel.textContent = 'その時間帯はすでに記録があります。空いている時間を選んでください';
         return;
