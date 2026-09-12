@@ -24,7 +24,8 @@
     #editDeleteBtn { background: #e74c3c; color: white; }
     #editCancelBtn { background: #ccc; color: #333; }
 
-    #timeAdjustBtn { background: none; border: 1px solid #06c755; color: #06c755; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; }
+    #timeAdjustBtn { background: none; border: 1px solid #888; color: #555; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; }
+    #timeAdjustBtn.active, #calendarBtn.active { border-color: #06c755; color: #06c755; background: #eafaf0; }
 
     #timeAdjustArea, #wheelPicker { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; text-align: left; max-width: 280px; margin-left: auto; margin-right: auto; }
     .time-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: white; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 10px; font-size: 15px; }
@@ -91,6 +92,9 @@
     #roomBackBtn { background: #ccc; color: #333; }
     #roomSetupError { color: #e74c3c; font-size: 12px; min-height: 16px; margin-top: 4px; }
     #changeModeBtn { background: none; color: #888; border: none; padding: 10px; font-size: 12px; margin-top: 10px; text-decoration: underline; display: block; margin-left: auto; margin-right: auto; }
+
+    #centerAlert { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: #fff3f2; border: 2px solid #e74c3c; color: #c0392b; padding: 18px 22px; border-radius: 14px; font-size: 14px; font-weight: bold; text-align: center; max-width: 82vw; box-shadow: 0 6px 24px rgba(0,0,0,0.25); line-height: 1.5; white-space: pre-line; }
+    #centerAlert.show { display: block; }
   </style>
 </head>
 <body>
@@ -100,6 +104,8 @@
       if (el) el.textContent = 'JSエラー: ' + message + ' (行:' + lineno + ')';
     };
   </script>
+
+  <div id="centerAlert"></div>
 
   <div id="initialLoading">読み込み中...</div>
 
@@ -300,6 +306,22 @@
       svg.classList.remove('loading');
     }
 
+    // ---- 画面のどこをスクロールしていても気づける、中央に出す警告 ----
+    const centerAlertEl = document.getElementById('centerAlert');
+    let centerAlertTimer = null;
+    function showCenterAlert(message) {
+      centerAlertEl.textContent = message;
+      centerAlertEl.classList.add('show');
+      clearTimeout(centerAlertTimer);
+      centerAlertTimer = setTimeout(() => {
+        centerAlertEl.classList.remove('show');
+      }, 2800);
+    }
+    centerAlertEl.addEventListener('click', () => {
+      centerAlertEl.classList.remove('show');
+      clearTimeout(centerAlertTimer);
+    });
+
     // ---- その日の内訳(カテゴリーごとの合計時間) ----
     function formatDuration(hours) {
       const totalMinutes = Math.round(hours * 60);
@@ -453,6 +475,7 @@
         if (rangeOverlapsExisting(startHour, endHour)) {
           arc.setAttribute('d', '');
           timeLabel.textContent = 'その時間帯はすでに記録があります。空いている時間を選んでください';
+          showCenterAlert('⚠️ その時間帯はすでに記録があります\n空いている時間を選んでください');
           startHour = null;
           endHour = null;
           return;
@@ -517,6 +540,12 @@
     let calViewYear = selectedDate.getFullYear();
     let calViewMonth = selectedDate.getMonth();
 
+    // ---- 「日付を選ぶ」「時刻で調整」ボタンは、開いている方だけ緑にする ----
+    function setActiveToggleBtn(activeId) {
+      document.getElementById('timeAdjustBtn').classList.toggle('active', activeId === 'timeAdjustBtn');
+      document.getElementById('calendarBtn').classList.toggle('active', activeId === 'calendarBtn');
+    }
+
     function isSameDate(a, b) {
       return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
     }
@@ -550,6 +579,7 @@
           cell.addEventListener('click', () => {
             switchToDate(cellDate);
             calendarArea.style.display = 'none';
+            setActiveToggleBtn(null);
           });
         }
         calGrid.appendChild(cell);
@@ -569,9 +599,11 @@
     document.getElementById('calTodayBtn').addEventListener('click', () => {
       switchToDate(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
       calendarArea.style.display = 'none';
+      setActiveToggleBtn(null);
     });
     document.getElementById('calCloseBtn').addEventListener('click', () => {
       calendarArea.style.display = 'none';
+      setActiveToggleBtn(null);
     });
 
     calendarBtn.addEventListener('click', () => {
@@ -584,6 +616,7 @@
       calViewMonth = selectedDate.getMonth();
       renderCalendar();
       calendarArea.style.display = 'block';
+      setActiveToggleBtn('calendarBtn');
     });
 
     // ---- 部屋のメンバー一覧・暫定ランキング ----
@@ -647,6 +680,7 @@
       timeAdjustArea.style.display = 'none';
       wheelPicker.style.display = 'none';
       calendarArea.style.display = 'none';
+      setActiveToggleBtn(null);
       loadRoomView();
       document.getElementById('roomView').style.display = 'block';
     });
@@ -668,6 +702,7 @@
       editArea.style.display = 'none';
       timeAdjustArea.style.display = 'none';
       wheelPicker.style.display = 'none';
+      setActiveToggleBtn(null);
       arc.setAttribute('d', '');
       startHour = null;
       endHour = null;
@@ -888,6 +923,7 @@
       }
       if (rangeOverlapsExisting(newStart, newEnd, currentEditSegment.id)) {
         timeLabel.textContent = 'その時間帯はすでに他の記録があります。時刻を確認してください';
+        showCenterAlert('⚠️ その時間帯はすでに他の記録があります\n時刻を確認してください');
         return;
       }
       document.getElementById('f_action').value = 'update';
@@ -1022,8 +1058,11 @@
     document.getElementById('timeAdjustBtn').addEventListener('click', () => {
       categoryArea.style.display = 'none';
       editArea.style.display = 'none';
+      calendarArea.style.display = 'none';
+      document.getElementById('roomView').style.display = 'none';
       refreshTimeAdjustConfirmBtn();
       timeAdjustArea.style.display = 'block';
+      setActiveToggleBtn('timeAdjustBtn');
     });
 
     document.getElementById('startRow').addEventListener('click', () => openWheelPicker('start'));
@@ -1066,6 +1105,7 @@
       document.getElementById('timeAdjustDetail').value = '';
       document.querySelectorAll('.timeadjust-category-btn').forEach((b) => b.classList.remove('selected'));
       timeAdjustArea.style.display = 'none';
+      setActiveToggleBtn(null);
     });
 
     document.getElementById('timeAdjustConfirmBtn').addEventListener('click', () => {
@@ -1076,6 +1116,7 @@
       }
       if (rangeOverlapsExisting(pickedStart, pickedEnd)) {
         timeLabel.textContent = 'その時間帯はすでに記録があります。空いている時間を選んでください';
+        showCenterAlert('⚠️ その時間帯はすでに記録があります\n空いている時間を選んでください');
         return;
       }
       if (!userId) {
@@ -1099,6 +1140,7 @@
       addSavedArc({ id: newId, startHour: pickedStart, endHour: pickedEnd, category: timeAdjustSelectedCategory, detail: detailValue });
 
       timeAdjustArea.style.display = 'none';
+      setActiveToggleBtn(null);
       pickedStart = null;
       pickedEnd = null;
       timeAdjustSelectedCategory = null;
