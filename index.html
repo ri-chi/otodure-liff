@@ -62,7 +62,7 @@
 
     #clockWrap { position: relative; width: 300px; margin: 0 auto; }
     #clockWrap.loading { visibility: hidden; }
-    #ampmToggleBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%; border: 2px solid #06c755; background: white; color: #06c755; font-size: 16px; font-weight: bold; }
+
 
     #summaryArea { border-top: 1px solid #ddd; margin-top: 24px; padding-top: 16px; padding-bottom: 8px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
     #summaryArea h4 { text-align: center; margin: 0 0 12px; font-size: 14px; color: #555; }
@@ -129,12 +129,30 @@
   <div id="timeLabel">記録をタップすると編集できます。新しい記録は「時刻で調整」からどうぞ</div>
 
   <div id="clockWrap" class="loading">
-    <svg id="clock" width="300" height="300" viewBox="0 0 300 300">
-      <circle cx="150" cy="150" r="120" fill="none" stroke="#eee" stroke-width="24"/>
+    <svg id="clock" width="300" height="352" viewBox="0 0 300 352">
+      <defs>
+        <mask id="moonMask">
+          <rect x="0" y="300" width="300" height="52" fill="white"/>
+          <circle cx="158" cy="327" r="10" fill="black"/>
+        </mask>
+      </defs>
+      <g id="track"></g>
       <g id="savedArcs"></g>
       <g id="ticks"></g>
+      <text x="150" y="176" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#aaa" pointer-events="none">24時間</text>
+      <!-- 昼の12時(上)に太陽 -->
+      <g id="sunIcon" pointer-events="none">
+        <circle cx="150" cy="22" r="7" fill="#ffb703"/>
+        <g stroke="#ffb703" stroke-width="2" stroke-linecap="round">
+          <line x1="150" y1="9" x2="150" y2="5"/><line x1="150" y1="35" x2="150" y2="39"/>
+          <line x1="137" y1="22" x2="133" y2="22"/><line x1="163" y1="22" x2="167" y2="22"/>
+          <line x1="141" y1="13" x2="138" y2="10"/><line x1="159" y1="13" x2="162" y2="10"/>
+          <line x1="141" y1="31" x2="138" y2="34"/><line x1="159" y1="31" x2="162" y2="34"/>
+        </g>
+      </g>
+      <!-- 夜の12時(下)に月 -->
+      <circle id="moonIcon" cx="150" cy="330" r="11" fill="#6b78b0" mask="url(#moonMask)" pointer-events="none"/>
     </svg>
-    <button id="ampmToggleBtn" type="button">AM</button>
   </div>
 
   <div id="legend">
@@ -252,7 +270,7 @@
 
     const svg = document.getElementById('clock');
     const clockWrap = document.getElementById('clockWrap');
-    const ampmToggleBtn = document.getElementById('ampmToggleBtn');
+    const trackGroup = document.getElementById('track');
     const savedArcsGroup = document.getElementById('savedArcs');
     const ticksGroup = document.getElementById('ticks');
     const timeLabel = document.getElementById('timeLabel');
@@ -305,7 +323,7 @@
       });
     }
 
-    const CENTER = { x: 150, y: 150 };
+    const CENTER = { x: 150, y: 176 };
     const today = new Date();
     function toDateStr(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -316,67 +334,77 @@
       `${selectedDate.getFullYear()}/${selectedDate.getMonth() + 1}/${selectedDate.getDate()}の記録`;
     const RADIUS = 120;
 
-    // ---- 円は12時間単位で表示し、中央のボタンでAM/PMを切り替える ----
-    let clockHalf = (new Date().getHours() >= 12) ? 'PM' : 'AM';
-
     function genId() {
       return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     }
 
-    function hourToAngle(localHour) {
-      return (localHour / 12) * 2 * Math.PI - Math.PI / 2;
+    // ---- 24時間の円。一番上が昼の12時、一番下が夜の0時(時計とは並びが違う) ----
+    function hourToAngle(hour) {
+      return ((hour - 12) / 24) * 2 * Math.PI - Math.PI / 2;
     }
 
-    for (let h = 0; h < 12; h++) {
-      const angle = hourToAngle(h);
-      const x1 = CENTER.x + Math.cos(angle) * (RADIUS - 10);
-      const y1 = CENTER.y + Math.sin(angle) * (RADIUS - 10);
-      const x2 = CENTER.x + Math.cos(angle) * (RADIUS + 10);
-      const y2 = CENTER.y + Math.sin(angle) * (RADIUS + 10);
+    function polar(hour, radius) {
+      const a = hourToAngle(hour);
+      return { x: CENTER.x + Math.cos(a) * radius, y: CENTER.y + Math.sin(a) * radius };
+    }
+
+    // 開始時刻 sh から sweep 時間ぶんの弧(sweep は 0〜24)
+    function describeArc(sh, sweep) {
+      if (sweep <= 0) sweep = 0.1;
+      const p1 = polar(sh, RADIUS), p2 = polar(sh + sweep, RADIUS);
+      const largeArc = sweep > 12 ? 1 : 0;
+      return `M ${p1.x} ${p1.y} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${p2.x} ${p2.y}`;
+    }
+
+    // 土台の輪: 昼(6〜18時)は明るく、夜(18〜6時)は暗めの色にする
+    [[6, '#f6efdc'], [18, '#dfe3ee']].forEach(([from, color]) => {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', describeArc(from, 12));
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', '24');
+      trackGroup.appendChild(path);
+    });
+
+    // 目盛り(1時間ごと)と、0・6・12・18 の数字だけ表示する
+    for (let h = 0; h < 24; h++) {
+      const major = h % 6 === 0;
+      const inner = polar(h, RADIUS - (major ? 12 : 6));
+      const outer = polar(h, RADIUS + (major ? 12 : 6));
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-      line.setAttribute('stroke', '#bbb');
+      line.setAttribute('x1', inner.x); line.setAttribute('y1', inner.y);
+      line.setAttribute('x2', outer.x); line.setAttribute('y2', outer.y);
+      line.setAttribute('stroke', major ? '#999' : '#c8c8c8');
+      line.setAttribute('stroke-width', major ? '2' : '1');
       ticksGroup.appendChild(line);
 
-      // 時計のように、一番上を12として1〜11の数字を円の内側に表示する
-      const numRadius = RADIUS - 28;
-      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      label.setAttribute('x', CENTER.x + Math.cos(angle) * numRadius);
-      label.setAttribute('y', CENTER.y + Math.sin(angle) * numRadius);
-      label.setAttribute('text-anchor', 'middle');
-      label.setAttribute('dominant-baseline', 'central');
-      label.setAttribute('font-size', '15');
-      label.setAttribute('font-weight', 'bold');
-      label.setAttribute('fill', '#666');
-      label.setAttribute('pointer-events', 'none');
-      label.textContent = String(h === 0 ? 12 : h);
-      ticksGroup.appendChild(label);
+      if (major) {
+        const pos = polar(h, RADIUS - 32);
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', pos.x);
+        label.setAttribute('y', pos.y);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('dominant-baseline', 'central');
+        label.setAttribute('font-size', '15');
+        label.setAttribute('font-weight', 'bold');
+        label.setAttribute('fill', '#666');
+        label.setAttribute('pointer-events', 'none');
+        label.textContent = String(h);
+        ticksGroup.appendChild(label);
+      }
     }
 
-    // タップされた位置を、今表示中のAM/PMをふまえた実際の時刻(0〜24)に変換する
+    // タップされた位置を、実際の時刻(0〜24)に変換する。輪から離れた場所なら null
     function posToHour(clientX, clientY) {
       const rect = svg.getBoundingClientRect();
       const scale = 300 / rect.width;
       const x = (clientX - rect.left) * scale - CENTER.x;
       const y = (clientY - rect.top) * scale - CENTER.y;
-      let angle = Math.atan2(y, x) + Math.PI / 2;
+      if (Math.abs(Math.hypot(x, y) - RADIUS) > 28) return null;
+      let angle = Math.atan2(y, x) + Math.PI / 2; // 一番上(=12時)からの時計回りの角度
       if (angle < 0) angle += 2 * Math.PI;
-      const localHour = (angle / (2 * Math.PI)) * 12;
-      const rounded = Math.round(localHour * 4) / 4;
-      const halfStart = clockHalf === 'PM' ? 12 : 0;
-      return (halfStart + rounded) % 24;
-    }
-
-    // sh, eh は同じ半日の中に収まっているローカル時刻(0〜12)を渡す前提
-    function describeArc(sh, eh) {
-      let sweep = eh - sh;
-      if (sweep <= 0) sweep = 0.1;
-      const a1 = hourToAngle(sh), a2 = hourToAngle(sh + sweep);
-      const x1 = CENTER.x + Math.cos(a1) * RADIUS, y1 = CENTER.y + Math.sin(a1) * RADIUS;
-      const x2 = CENTER.x + Math.cos(a2) * RADIUS, y2 = CENTER.y + Math.sin(a2) * RADIUS;
-      const largeArc = sweep > 6 ? 1 : 0;
-      return `M ${x1} ${y1} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${x2} ${y2}`;
+      const hour = 12 + (angle / (2 * Math.PI)) * 24;
+      return (Math.round(hour * 4) / 4) % 24;
     }
 
     function formatHour(h) {
@@ -412,40 +440,20 @@
         segIntervals(seg.startHour, seg.endHour).some(([a, b]) => mine.some(([c, d]) => a < d && c < b)));
     }
 
-    // seg.startHour/seg.endHour は実際の時刻(0〜24)。表示中のAM/PMの範囲に
-    // 収まる部分だけを切り出して[ローカル開始, ローカル終了]の配列で返す(正午をまたぐ
-    // 記録は最大2つに分かれる)
-    function getVisibleSegments(seg, halfStart) {
-      let sweep = seg.endHour - seg.startHour;
-      if (sweep < 0) sweep += 24;
-      if (sweep <= 0) return [];
-      const start = seg.startHour;
-      const end = start + sweep;
-      const raw = end <= 24 ? [[start, end]] : [[start, 24], [0, end - 24]];
-      const halfEnd = halfStart + 12;
-      const visible = [];
-      raw.forEach(([a, b]) => {
-        const lo = Math.max(a, halfStart);
-        const hi = Math.min(b, halfEnd);
-        if (hi > lo) visible.push([lo - halfStart, hi - halfStart]);
-      });
-      return visible;
-    }
-
-    // いま表示中のAM/PMに合わせて、記録済みの円グラフを描き直す
+    // 記録済みの時間帯を円に描き直す(日をまたぐ記録も1本の弧でつなげる)
     function renderClockFace() {
       savedArcsGroup.innerHTML = '';
-      const halfStart = clockHalf === 'PM' ? 12 : 0;
       savedSegments.forEach((seg) => {
-        getVisibleSegments(seg, halfStart).forEach(([ls, le]) => {
-          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-          path.setAttribute('d', describeArc(ls, le));
-          path.setAttribute('fill', 'none');
-          path.setAttribute('stroke', CATEGORY_COLORS[seg.category] || '#999');
-          path.setAttribute('stroke-width', '24');
-          path.setAttribute('stroke-linecap', 'round');
-          savedArcsGroup.appendChild(path);
-        });
+        let sweep = seg.endHour - seg.startHour;
+        if (sweep < 0) sweep += 24;
+        if (sweep <= 0) return;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', describeArc(seg.startHour, sweep));
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', CATEGORY_COLORS[seg.category] || '#999');
+        path.setAttribute('stroke-width', '24');
+        path.setAttribute('stroke-linecap', 'round');
+        savedArcsGroup.appendChild(path);
       });
     }
 
@@ -455,17 +463,10 @@
       renderClockFace();
     }
 
-    ampmToggleBtn.textContent = clockHalf;
-    ampmToggleBtn.addEventListener('click', () => {
-      clockHalf = clockHalf === 'AM' ? 'PM' : 'AM';
-      ampmToggleBtn.textContent = clockHalf;
-      renderClockFace();
-    });
-
     // ---- 記録済みの部分をタップすると編集画面を開く ----
     svg.addEventListener('pointerdown', (e) => {
       const hour = posToHour(e.clientX, e.clientY);
-      const hit = findSegmentAtHour(hour);
+      const hit = hour === null ? null : findSegmentAtHour(hour);
       if (hit) {
         openRecordForm(hit);
       } else if (currentEditSegment) {
