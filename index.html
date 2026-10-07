@@ -50,14 +50,45 @@
     .cal-day.selected { background: #06c755; color: white; }
     #calendarArea #calTodayBtn, #calendarArea #calCloseBtn { padding: 10px 18px; border-radius: 20px; border: none; font-size: 13px; margin: 6px 4px; background: #ccc; color: #333; }
 
-    #roomTabBtn { background: none; border: 1px solid #888; color: #555; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; margin-left: 6px; }
-    #roomView { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
-    #roomView h4 { text-align: center; margin: 0 0 12px; font-size: 14px; color: #555; }
-    .room-member-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
-    .room-member-row.me { border-color: #06c755; background: #eafaf0; }
-    .room-member-name { color: #333; }
-    .room-member-title { font-weight: bold; color: #06c755; text-align: right; }
-    #roomViewCloseBtn { display: block; margin: 12px auto 0; padding: 10px 18px; border-radius: 20px; border: none; font-size: 13px; background: #ccc; color: #333; }
+    #groupBtn { background: none; border: 1px solid #888; color: #555; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; margin-left: 6px; }
+    #groupBtn.active { border-color: #06c755; color: #06c755; background: #eafaf0; }
+    #groupView { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
+    #groupView h4 { text-align: center; margin: 0 0 12px; font-size: 14px; color: #555; }
+    .g-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
+    .g-row .g-name { font-weight: bold; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .g-row .g-count { color: #888; margin-left: 8px; white-space: nowrap; }
+    .g-empty { text-align: center; color: #999; font-size: 13px; padding: 8px 0 12px; }
+    .g-box { display: flex; gap: 6px; margin: 10px 0; }
+    .g-box input { flex: 1; min-width: 0; padding: 9px; font-size: 14px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+    .g-btn { padding: 9px 14px; border-radius: 16px; border: none; font-size: 13px; background: #06c755; color: white; white-space: nowrap; }
+    .g-btn.gray { background: #ccc; color: #333; }
+    .g-label { font-size: 12px; color: #777; margin-top: 12px; }
+    #groupMsg { min-height: 16px; font-size: 12px; color: #e74c3c; text-align: center; margin: 6px 0; }
+    #groupMsg.ok { color: #06a047; }
+    .g-center { text-align: center; }
+    #feedInvite { text-align: center; font-size: 13px; color: #555; margin-bottom: 6px; }
+    #feedCode { letter-spacing: 2px; font-size: 16px; color: #222; user-select: all; }
+    #feedMembers { text-align: center; font-size: 12px; color: #888; margin-bottom: 8px; }
+    #feedDateNav { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
+    #feedDateNav button { background: none; border: none; font-size: 20px; color: #06c755; padding: 4px 12px; }
+    #feedDateNav button:disabled { color: #ccc; }
+    #feedDateLabel { font-weight: bold; font-size: 14px; }
+    .feed-member { margin-bottom: 14px; }
+    .feed-member-head { font-size: 13px; font-weight: bold; color: #333; margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .feed-member-head .sub { font-weight: normal; color: #888; }
+    .feed-row { display: flex; align-items: center; padding: 8px 10px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
+    .feed-row .dot { flex-shrink: 0; margin-right: 0; }
+    .feed-row .feed-time { font-weight: bold; margin: 0 8px; white-space: nowrap; color: #222; }
+    .feed-row .feed-text { flex: 1; min-width: 0; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .like-btn { border: 1px solid #ddd; background: #fff; border-radius: 14px; padding: 3px 9px; font-size: 12px; color: #888; margin-left: 6px; white-space: nowrap; }
+    .like-btn.liked { border-color: #ff7eb6; color: #e0457b; background: #fff0f6; }
+    .like-count { font-size: 12px; color: #e0457b; margin-left: 6px; white-space: nowrap; }
+    .vis-toggle { display: flex; gap: 8px; margin: 10px 0 6px; }
+    .vis-btn { flex: 1; padding: 9px 0; border-radius: 10px; border: 2px solid #ddd; background: white; font-size: 13px; color: #555; }
+    .vis-btn.selected { border-color: #06c755; background: #eafaf0; color: #06a047; font-weight: bold; }
+    #visGroups { background: white; border: 1px solid #eee; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: 13px; }
+    #visGroups label { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+    .vis-badge { margin-left: 4px; font-size: 11px; }
 
     #clockWrap { position: relative; width: 300px; margin: 0 auto; }
     #clockWrap.loading { visibility: hidden; }
@@ -83,19 +114,6 @@
 
     #initialLoading { padding: 60px 16px; color: #888; font-size: 15px; }
 
-    #modeGate, #roomSetupArea { max-width: 300px; margin: 40px auto; text-align: center; }
-    #modeGate h3, #roomSetupArea h3 { font-size: 17px; margin-bottom: 24px; }
-    .mode-choice-btn { display: block; width: 100%; padding: 18px; margin: 12px 0; border-radius: 12px; border: 2px solid #ddd; background: white; font-size: 15px; text-align: left; box-sizing: border-box; }
-    .mode-choice-btn .mode-title { font-weight: bold; font-size: 16px; display: block; margin-bottom: 4px; }
-    .mode-choice-btn .mode-desc { color: #888; font-size: 12px; display: block; }
-    .mode-choice-btn:active { border-color: #06c755; background: #eafaf0; }
-    #roomSetupArea input { width: 90%; padding: 10px; font-size: 14px; margin: 8px 0; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
-    #roomSetupArea button { padding: 12px 24px; border-radius: 20px; border: none; font-size: 14px; margin: 10px 4px; }
-    #roomJoinBtn { background: #06c755; color: white; }
-    #roomBackBtn { background: #ccc; color: #333; }
-    #roomSetupError { color: #e74c3c; font-size: 12px; min-height: 16px; margin-top: 4px; }
-    #changeModeBtn { background: none; color: #888; border: none; padding: 10px; font-size: 12px; margin-top: 10px; text-decoration: underline; display: block; margin-left: auto; margin-right: auto; }
-
     #centerAlert { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: #fff3f2; border: 2px solid #e74c3c; color: #c0392b; padding: 18px 22px; border-radius: 14px; font-size: 14px; font-weight: bold; text-align: center; max-width: 82vw; box-shadow: 0 6px 24px rgba(0,0,0,0.25); line-height: 1.5; white-space: pre-line; }
     #centerAlert.show { display: block; }
   </style>
@@ -111,29 +129,6 @@
   <div id="centerAlert"></div>
 
   <div id="initialLoading">読み込み中...</div>
-
-  <div id="modeGate" style="display:none;">
-    <h3>使い方を選んでください</h3>
-    <div class="mode-choice-btn" id="soloModeBtn">
-      <span class="mode-title">時計簿として使う</span>
-      <span class="mode-desc">自分だけで記録・振り返りをする一人モード</span>
-    </div>
-    <div class="mode-choice-btn" id="roomModeBtn">
-      <span class="mode-title">合言葉で部屋に入る</span>
-      <span class="mode-desc">同じ合言葉を入力した友だちと部屋を作る(ランキング機能など)</span>
-    </div>
-  </div>
-
-  <div id="roomSetupArea" style="display:none;">
-    <h3>部屋に入る</h3>
-    <input type="text" id="roomCodeInput" placeholder="合言葉" maxlength="30">
-    <input type="text" id="nicknameInput" placeholder="ニックネーム" maxlength="20">
-    <div id="roomSetupError"></div>
-    <div>
-      <button id="roomJoinBtn">この部屋に入る</button>
-      <button id="roomBackBtn">戻る</button>
-    </div>
-  </div>
 
   <div id="mainApp" style="display:none;">
   <h3 id="dateHeading">記録</h3>
@@ -169,7 +164,7 @@
 
   <button id="timeAdjustBtn">時刻で調整</button>
   <button id="calendarBtn">📅 日付を選ぶ</button>
-  <button id="roomTabBtn" style="display:none;">🏠 部屋</button>
+  <button id="groupBtn">👥 グループ</button>
 
   <div id="calendarArea" style="display:none;">
     <div id="calHeader">
@@ -187,10 +182,48 @@
     </div>
   </div>
 
-  <div id="roomView" style="display:none;">
-    <h4 id="roomViewTitle">部屋</h4>
-    <div id="roomMemberList"></div>
-    <button id="roomViewCloseBtn">閉じる</button>
+  <div id="groupView" style="display:none;">
+    <div id="groupListPane">
+      <h4>グループ</h4>
+      <div class="g-label">表示名(グループの人に見える名前)</div>
+      <div class="g-box">
+        <input type="text" id="nickInput" maxlength="20" placeholder="例: りいち">
+        <button class="g-btn" id="nickSaveBtn">保存</button>
+      </div>
+      <div class="g-label">参加中のグループ</div>
+      <div id="groupList"></div>
+      <div class="g-label">新しくグループを作る</div>
+      <div class="g-box">
+        <input type="text" id="newGroupName" maxlength="30" placeholder="グループ名(例: 筋トレ部)">
+        <button class="g-btn" id="createGroupBtn">作る</button>
+      </div>
+      <div class="g-label">招待コードで参加する</div>
+      <div class="g-box">
+        <input type="text" id="joinCode" maxlength="30" placeholder="招待コード">
+        <button class="g-btn" id="joinGroupBtn">参加</button>
+      </div>
+      <div id="groupMsg"></div>
+      <div class="g-center"><button class="g-btn gray" id="groupCloseBtn">閉じる</button></div>
+    </div>
+    <div id="groupFeedPane" style="display:none;">
+      <h4 id="feedTitle"></h4>
+      <div id="feedInvite">招待コード: <b id="feedCode"></b></div>
+      <div class="g-center" style="margin-bottom:8px;">
+        <button class="g-btn" id="shareCodeBtn" style="display:none;">LINEで招待を送る</button>
+      </div>
+      <div id="feedMembers"></div>
+      <div id="feedDateNav">
+        <button id="feedPrev">‹</button>
+        <span id="feedDateLabel"></span>
+        <button id="feedNext">›</button>
+      </div>
+      <div id="feedList"></div>
+      <div id="feedMsg" style="min-height:16px;font-size:12px;color:#e74c3c;text-align:center;margin:6px 0;"></div>
+      <div class="g-center">
+        <button class="g-btn gray" id="feedBackBtn">戻る</button>
+        <button class="g-btn gray" id="feedLeaveBtn">このグループを抜ける</button>
+      </div>
+    </div>
   </div>
 
   <div id="recordDetail" style="display:none;">
@@ -198,6 +231,7 @@
     <div class="detail-card">
       <div class="detail-time"><span class="dot" id="detailDot"></span><span id="detailTime"></span><span id="detailDuration"></span></div>
       <div id="detailText"></div>
+      <div id="detailVisibility" style="margin-top:10px;font-size:12px;color:#888;"></div>
     </div>
     <div style="text-align:center;">
       <button class="form-btn" id="detailCloseBtn">閉じる</button>
@@ -233,6 +267,13 @@
       <button type="button" class="swatch" data-color="pink" aria-label="ピンク" style="background:#ff7eb6;"></button>
     </div>
     <input type="text" id="formDetail" placeholder="内容(例: 散歩、読書)">
+    <div id="visBlock" style="display:none;">
+      <div class="vis-toggle">
+        <button type="button" class="vis-btn selected" id="visPrivate">🔒 自分だけ</button>
+        <button type="button" class="vis-btn" id="visGroup">👥 グループ</button>
+      </div>
+      <div id="visGroups" style="display:none;"></div>
+    </div>
     <br>
     <div style="text-align:center;">
       <button class="form-btn" id="formCancelBtn">キャンセル</button>
@@ -249,7 +290,6 @@
     <div id="dayTotal"></div>
   </div>
 
-  <button id="changeModeBtn">使い方の設定を変更</button>
   </div>
 
   <iframe name="hiddenFrame" style="display:none;"></iframe>
@@ -262,9 +302,8 @@
     <input type="hidden" name="endHour" id="f_endHour">
     <input type="hidden" name="detail" id="f_detail">
     <input type="hidden" name="date" id="f_date">
-    <input type="hidden" name="mode" id="f_mode">
-    <input type="hidden" name="roomCode" id="f_roomCode">
-    <input type="hidden" name="nickname" id="f_nickname">
+    <input type="hidden" name="visibility" id="f_visibility">
+    <input type="hidden" name="groupIds" id="f_groupIds">
   </form>
 
   <script>
@@ -354,6 +393,12 @@
         row.appendChild(dot);
         row.appendChild(time);
         row.appendChild(text);
+        if (seg.visibility === 'group') {
+          const badge = document.createElement('span');
+          badge.className = 'vis-badge';
+          badge.textContent = '👥';
+          row.appendChild(badge);
+        }
         row.addEventListener('click', () => openRecordDetail(seg));
         list.appendChild(row);
       });
@@ -493,6 +538,19 @@
         path.setAttribute('stroke-linecap', 'round');
         savedArcsGroup.appendChild(path);
       });
+    }
+
+    // サーバーの記録から、画面で使う形(セグメント)を作る
+    function segFromRecord(r) {
+      return {
+        id: r.id,
+        startHour: Number(r.startHour),
+        endHour: Number(r.endHour),
+        color: normalizeColor(r.category),
+        detail: r.detail,
+        visibility: r.visibility === 'group' ? 'group' : 'private',
+        groupIds: Array.isArray(r.groupIds) ? r.groupIds : []
+      };
     }
 
     function addSegment(seg) {
@@ -641,7 +699,7 @@
 
     calendarBtn.addEventListener('click', () => {
       closeRecordForm();
-      document.getElementById('roomView').style.display = 'none';
+      document.getElementById('groupView').style.display = 'none'; setGroupBtnActive(false);
       calViewYear = selectedDate.getFullYear();
       calViewMonth = selectedDate.getMonth();
       renderCalendar();
@@ -649,72 +707,314 @@
       setActiveToggleBtn('calendarBtn');
     });
 
-    // ---- 部屋のメンバー一覧・暫定ランキング ----
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    }
-
-    function formatAnnounceDateTime(iso) {
-      const d = new Date(iso);
-      return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-    }
-
-    function renderRoomView(data) {
-      const list = document.getElementById('roomMemberList');
-      if (!data) {
-        document.getElementById('roomViewTitle').textContent = '部屋';
-        list.innerHTML = '<div style="text-align:center;color:#e74c3c;">部屋の情報を取得できませんでした</div>';
-        return;
-      }
-      document.getElementById('roomViewTitle').textContent = `「${escapeHtml(data.roomCode)}」部屋のメンバー`;
-      list.innerHTML = '';
-
-      const notice = document.createElement('div');
-      notice.style.cssText = 'text-align:center;color:#888;font-size:12px;margin-bottom:10px;';
-      notice.textContent = data.announced
-        ? `集計期間: ${data.periodLabel}`
-        : `集計期間: ${data.periodLabel}(称号の発表は ${formatAnnounceDateTime(data.announceAt)} です)`;
-      list.appendChild(notice);
-
-      data.members.forEach((m) => {
-        const row = document.createElement('div');
-        row.className = 'room-member-row' + (m.isMe ? ' me' : '');
-        const titleHtml = data.announced ? `<span class="room-member-title">${escapeHtml(m.title)}</span>` : '';
-        row.innerHTML = `<span class="room-member-name">${escapeHtml(m.nickname)}${m.isMe ? '(自分)' : ''}</span>${titleHtml}`;
-        list.appendChild(row);
-      });
-    }
-
-    let roomRequestCounter = 0;
-    function loadRoomView() {
-      document.getElementById('roomMemberList').innerHTML = '<div style="text-align:center;color:#888;">読み込み中...</div>';
-      roomRequestCounter += 1;
-      const cbName = 'handleRoomView_' + roomRequestCounter;
+    // ---- API呼び出し(結果を受け取れるJSONP) ----
+    let apiCounter = 0;
+    function callApi(params, onDone, onFail) {
+      const token = getFreshIdToken();
+      if (!token) return;
+      apiCounter += 1;
+      const cbName = 'api_' + apiCounter;
+      const script = document.createElement('script');
       window[cbName] = function (data) {
         delete window[cbName];
+        script.remove();
         if (isAuthError(data)) { relogin(); return; }
-        renderRoomView(data);
+        onDone(data);
       };
-      const url = `${GAS_API_URL}?type=room&idToken=${encodeURIComponent(getFreshIdToken())}&callback=${cbName}`;
-      const script = document.createElement('script');
-      script.src = url;
+      const q = Object.keys(params).map((k) => k + '=' + encodeURIComponent(params[k])).join('&');
+      script.src = `${GAS_API_URL}?${q}&idToken=${encodeURIComponent(token)}&callback=${cbName}`;
       script.onerror = function () {
         delete window[cbName];
-        document.getElementById('roomMemberList').innerHTML = '<div style="text-align:center;color:#e74c3c;">読み込みに失敗しました</div>';
+        script.remove();
+        if (onFail) onFail();
       };
       document.body.appendChild(script);
     }
 
-    document.getElementById('roomTabBtn').addEventListener('click', () => {
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // ---- グループ ----
+    let myGroups = [];
+    let myNickname = '';
+    const LIFF_URL = 'https://liff.line.me/2011303051-VhtUseuB';
+    const groupView = document.getElementById('groupView');
+    const groupListPane = document.getElementById('groupListPane');
+    const groupFeedPane = document.getElementById('groupFeedPane');
+    const groupMsg = document.getElementById('groupMsg');
+
+    function setGroupBtnActive(on) {
+      document.getElementById('groupBtn').classList.toggle('active', on);
+    }
+    function groupNamesOf(ids) {
+      return (ids || []).map((id) => {
+        const g = myGroups.find((x) => x.id === id);
+        return g ? g.name : null;
+      }).filter(Boolean);
+    }
+    function setGroupMsg(text, ok) {
+      groupMsg.textContent = text || '';
+      groupMsg.classList.toggle('ok', !!ok);
+    }
+    const GROUP_ERRORS = {
+      empty: '入力してください', limit: 'これ以上グループに入れません(上限10個)', notfound: '見つかりません。招待コードを確認してください',
+      rate: '間違いが続いたため、しばらく待ってからお試しください', busy: 'うまくいきませんでした。もう一度お試しください', notmember: 'このグループのメンバーではありません'
+    };
+
+    function refreshGroups(done) {
+      callApi({ type: 'groups' }, (d) => {
+        myGroups = (d && d.groups) || [];
+        updateVisibilityBlock();
+        renderGroupList();
+        if (done) done();
+      }, () => { if (done) done(); });
+    }
+
+    function renderGroupList() {
+      const list = document.getElementById('groupList');
+      list.innerHTML = '';
+      if (!myGroups.length) {
+        list.innerHTML = '<div class="g-empty">まだグループに入っていません</div>';
+        return;
+      }
+      myGroups.forEach((g) => {
+        const row = document.createElement('div');
+        row.className = 'g-row';
+        row.innerHTML = `<span class="g-name">${escapeHtml(g.name)}</span><span class="g-count">${g.memberCount}人 ›</span>`;
+        row.addEventListener('click', () => openGroupFeed(g));
+        list.appendChild(row);
+      });
+    }
+
+    function openGroupView() {
       closeRecordForm();
       calendarArea.style.display = 'none';
       setActiveToggleBtn(null);
-      loadRoomView();
-      document.getElementById('roomView').style.display = 'block';
+      document.getElementById('nickInput').value = myNickname;
+      setGroupMsg('');
+      groupListPane.style.display = 'block';
+      groupFeedPane.style.display = 'none';
+      groupView.style.display = 'block';
+      setGroupBtnActive(true);
+      renderGroupList();
+      refreshGroups();
+      groupView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    document.getElementById('groupBtn').addEventListener('click', () => {
+      if (groupView.style.display === 'block') { groupView.style.display = 'none'; setGroupBtnActive(false); return; }
+      openGroupView();
+    });
+    document.getElementById('groupCloseBtn').addEventListener('click', () => {
+      groupView.style.display = 'none';
+      setGroupBtnActive(false);
     });
 
-    document.getElementById('roomViewCloseBtn').addEventListener('click', () => {
-      document.getElementById('roomView').style.display = 'none';
+    document.getElementById('nickSaveBtn').addEventListener('click', () => {
+      const nick = document.getElementById('nickInput').value.trim();
+      if (!nick) { setGroupMsg('表示名を入力してください'); return; }
+      callApi({ type: 'setNickname', nickname: nick }, (d) => {
+        if (d && d.ok) { myNickname = d.nickname; setGroupMsg('表示名を保存しました', true); }
+        else setGroupMsg(GROUP_ERRORS[d && d.error] || '保存できませんでした');
+      }, () => setGroupMsg('通信に失敗しました'));
+    });
+
+    function needNickname() {
+      if (myNickname) return false;
+      setGroupMsg('先に「表示名」を入力して保存してください');
+      return true;
+    }
+
+    document.getElementById('createGroupBtn').addEventListener('click', () => {
+      if (needNickname()) return;
+      const name = document.getElementById('newGroupName').value.trim();
+      if (!name) { setGroupMsg('グループ名を入力してください'); return; }
+      callApi({ type: 'createGroup', name }, (d) => {
+        if (d && d.group) {
+          document.getElementById('newGroupName').value = '';
+          setGroupMsg('');
+          refreshGroups(() => openGroupFeed(d.group));
+        } else setGroupMsg(GROUP_ERRORS[d && d.error] || '作れませんでした');
+      }, () => setGroupMsg('通信に失敗しました'));
+    });
+
+    document.getElementById('joinGroupBtn').addEventListener('click', () => {
+      if (needNickname()) return;
+      const code = document.getElementById('joinCode').value.trim();
+      if (!code) { setGroupMsg('招待コードを入力してください'); return; }
+      callApi({ type: 'joinGroup', code }, (d) => {
+        if (d && d.group) {
+          document.getElementById('joinCode').value = '';
+          setGroupMsg('');
+          refreshGroups(() => openGroupFeed(d.group));
+        } else setGroupMsg(GROUP_ERRORS[d && d.error] || '参加できませんでした');
+      }, () => setGroupMsg('通信に失敗しました'));
+    });
+
+    // ---- グループの記録一覧(いいね付き) ----
+    let feedGroup = null;
+    let feedDate = new Date();
+    let feedRequest = 0;
+    const feedList = document.getElementById('feedList');
+    const feedMsg = document.getElementById('feedMsg');
+
+    function openGroupFeed(group) {
+      feedGroup = group;
+      feedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      groupListPane.style.display = 'none';
+      groupFeedPane.style.display = 'block';
+      groupView.style.display = 'block';
+      setGroupBtnActive(true);
+      document.getElementById('feedTitle').textContent = group.name;
+      document.getElementById('feedCode').textContent = group.inviteCode;
+      document.getElementById('feedMembers').textContent = '';
+      document.getElementById('shareCodeBtn').style.display =
+        (liff.isApiAvailable && liff.isApiAvailable('shareTargetPicker')) ? 'inline-block' : 'none';
+      resetLeaveBtn();
+      feedMsg.textContent = '';
+      loadFeed();
+      callApi({ type: 'members', groupId: group.id }, (d) => {
+        if (feedGroup !== group || !d || !d.members) return;
+        document.getElementById('feedMembers').textContent = 'メンバー: ' + d.members.map((m) => m.nickname + (m.isMe ? '(自分)' : '')).join('、');
+      });
+      groupView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function loadFeed() {
+      const group = feedGroup;
+      const ds = toDateStr(feedDate);
+      document.getElementById('feedDateLabel').textContent = `${feedDate.getFullYear()}/${feedDate.getMonth() + 1}/${feedDate.getDate()}`;
+      document.getElementById('feedNext').disabled = isSameDate(feedDate, today) || isFutureDate(feedDate);
+      feedList.innerHTML = '<div class="g-empty">読み込み中...</div>';
+      feedRequest += 1;
+      const mine = feedRequest;
+      callApi({ type: 'feed', groupId: group.id, date: ds }, (d) => {
+        if (mine !== feedRequest) return;
+        if (d && d.records) renderFeed(d.records);
+        else feedList.innerHTML = `<div class="g-empty" style="color:#e74c3c;">${GROUP_ERRORS[d && d.error] || '読み込めませんでした'}</div>`;
+      }, () => {
+        if (mine !== feedRequest) return;
+        feedList.innerHTML = '<div class="g-empty" style="color:#e74c3c;">読み込みに失敗しました</div>';
+      });
+    }
+
+    function renderFeed(records) {
+      feedList.innerHTML = '';
+      if (!records.length) {
+        feedList.innerHTML = '<div class="g-empty">この日にグループへ出された記録はありません</div>';
+        return;
+      }
+      const byMember = {};
+      const order = [];
+      records.forEach((r) => {
+        const key = (r.isMe ? '0_' : '1_') + r.nickname;
+        if (!byMember[key]) { byMember[key] = { nickname: r.nickname, isMe: r.isMe, list: [] }; order.push(key); }
+        byMember[key].list.push(r);
+      });
+      order.sort();
+      order.forEach((key) => {
+        const m = byMember[key];
+        m.list.sort((a, b) => Number(a.startHour) - Number(b.startHour));
+        const total = m.list.reduce((t, r) => t + segSweep({ startHour: Number(r.startHour), endHour: Number(r.endHour) }), 0);
+        const box = document.createElement('div');
+        box.className = 'feed-member';
+        box.innerHTML = `<div class="feed-member-head"><span>${escapeHtml(m.nickname)}${m.isMe ? '(自分)' : ''}</span><span class="sub">合計 ${formatDuration(total)}</span></div>`;
+        m.list.forEach((r) => {
+          const row = document.createElement('div');
+          row.className = 'feed-row';
+          const color = COLORS[normalizeColor(r.category)];
+          row.innerHTML = `<span class="dot" style="background:${color}"></span><span class="feed-time">${formatHour(Number(r.startHour))}〜${formatHour(Number(r.endHour))}</span><span class="feed-text">${escapeHtml(r.detail || '')}</span>`;
+          if (m.isMe) {
+            if (r.likeCount > 0) {
+              const c = document.createElement('span');
+              c.className = 'like-count';
+              c.textContent = '❤ ' + r.likeCount;
+              row.appendChild(c);
+            }
+          } else {
+            row.appendChild(makeLikeButton(r));
+          }
+          box.appendChild(row);
+        });
+        feedList.appendChild(box);
+      });
+    }
+
+    function makeLikeButton(r) {
+      const btn = document.createElement('button');
+      btn.className = 'like-btn';
+      const paint = () => {
+        btn.classList.toggle('liked', !!r.liked);
+        btn.textContent = (r.liked ? '❤ ' : '♡ ') + (r.likeCount || 0);
+      };
+      paint();
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        const want = !r.liked;
+        // 先に見た目を変えて、失敗したら戻す
+        r.liked = want; r.likeCount = (r.likeCount || 0) + (want ? 1 : -1); paint();
+        callApi({ type: 'like', recordId: r.id, on: want ? '1' : '0' }, (d) => {
+          btn.disabled = false;
+          if (d && d.ok) { r.liked = d.liked; r.likeCount = d.likeCount; paint(); }
+          else { r.liked = !want; r.likeCount += want ? -1 : 1; paint(); feedMsg.textContent = 'いいねできませんでした'; }
+        }, () => {
+          btn.disabled = false;
+          r.liked = !want; r.likeCount += want ? -1 : 1; paint(); feedMsg.textContent = '通信に失敗しました';
+        });
+      });
+      return btn;
+    }
+
+    document.getElementById('feedPrev').addEventListener('click', () => {
+      feedDate = new Date(feedDate.getFullYear(), feedDate.getMonth(), feedDate.getDate() - 1);
+      loadFeed();
+    });
+    document.getElementById('feedNext').addEventListener('click', () => {
+      const next = new Date(feedDate.getFullYear(), feedDate.getMonth(), feedDate.getDate() + 1);
+      if (isFutureDate(next)) return;
+      feedDate = next;
+      loadFeed();
+    });
+    document.getElementById('feedBackBtn').addEventListener('click', () => {
+      feedGroup = null;
+      groupFeedPane.style.display = 'none';
+      groupListPane.style.display = 'block';
+      renderGroupList();
+      refreshGroups();
+    });
+
+    // 抜けるときは、うっかり押しても大丈夫なように2回押してもらう
+    let leaveArmed = false;
+    function resetLeaveBtn() {
+      leaveArmed = false;
+      document.getElementById('feedLeaveBtn').textContent = 'このグループを抜ける';
+    }
+    document.getElementById('feedLeaveBtn').addEventListener('click', () => {
+      if (!leaveArmed) {
+        leaveArmed = true;
+        document.getElementById('feedLeaveBtn').textContent = '本当に抜ける(もう一度押す)';
+        return;
+      }
+      const g = feedGroup;
+      callApi({ type: 'leaveGroup', groupId: g.id }, (d) => {
+        resetLeaveBtn();
+        if (d && d.ok) {
+          feedGroup = null;
+          groupFeedPane.style.display = 'none';
+          groupListPane.style.display = 'block';
+          setGroupMsg('「' + g.name + '」を抜けました', true);
+          refreshGroups();
+        } else feedMsg.textContent = GROUP_ERRORS[d && d.error] || '抜けられませんでした';
+      }, () => { resetLeaveBtn(); feedMsg.textContent = '通信に失敗しました'; });
+    });
+
+    document.getElementById('shareCodeBtn').addEventListener('click', () => {
+      if (!feedGroup) return;
+      const text = `「${feedGroup.name}」に参加しよう!\n招待コード: ${feedGroup.inviteCode}\n${LIFF_URL}`;
+      liff.shareTargetPicker([{ type: 'text', text }]).catch(() => {
+        feedMsg.textContent = '招待を送れませんでした。コードを直接伝えてください';
+      });
     });
 
     function switchToDate(d) {
@@ -740,13 +1040,7 @@
       const hasCache = !!(cached && cached.length);
       if (hasCache) {
         cached.forEach((r) => {
-          addSegment({
-            id: r.id,
-            startHour: Number(r.startHour),
-            endHour: Number(r.endHour),
-            color: normalizeColor(r.category),
-            detail: r.detail
-          });
+          addSegment(segFromRecord(r));
         });
         timeLabel.textContent = DEFAULT_LABEL;
         showClock();
@@ -754,101 +1048,27 @@
       loadTodayRecords(!hasCache);
     }
 
-    // ---- 部屋選択(時計簿 or 合言葉) ----
+    // ---- 起動: 表示名とグループを読み込んでから画面を出す ----
     const initialLoading = document.getElementById('initialLoading');
-    const modeGate = document.getElementById('modeGate');
-    const roomSetupArea = document.getElementById('roomSetupArea');
     const mainApp = document.getElementById('mainApp');
-    const roomSetupError = document.getElementById('roomSetupError');
-    const roomCodeInput = document.getElementById('roomCodeInput');
-    const nicknameInput = document.getElementById('nicknameInput');
-    let appMode = null, roomCode = null, nickname = null;
-
-    function showGate() {
-      initialLoading.style.display = 'none';
-      mainApp.style.display = 'none';
-      roomSetupArea.style.display = 'none';
-      roomCodeInput.value = roomCode || '';
-      nicknameInput.value = nickname || '';
-      modeGate.style.display = 'block';
-    }
 
     function enterApp() {
+      if (mainApp.style.display === 'block') return;
       initialLoading.style.display = 'none';
-      modeGate.style.display = 'none';
-      roomSetupArea.style.display = 'none';
       mainApp.style.display = 'block';
-      document.getElementById('roomTabBtn').style.display = appMode === 'room' ? 'inline-block' : 'none';
+      updateVisibilityBlock();
       loadForSelectedDate();
     }
 
-    function saveUserSettings(mode, rc, nick) {
-      appMode = mode;
-      roomCode = rc || '';
-      nickname = nick || '';
-      document.getElementById('f_action').value = 'setUser';
-            document.getElementById('f_mode').value = appMode;
-      document.getElementById('f_roomCode').value = roomCode;
-      document.getElementById('f_nickname').value = nickname;
-      submitSaveForm();
-    }
-
-    function checkUserSettings() {
-      const cbName = 'handleUserSettings_' + Date.now();
-      window[cbName] = function (settings) {
-        delete window[cbName];
-        if (isAuthError(settings)) { relogin(); return; }
-        if (settings && settings.mode) {
-          appMode = settings.mode;
-          roomCode = settings.roomCode || '';
-          nickname = settings.nickname || '';
+    function initApp() {
+      callApi({ type: 'user' }, (s) => {
+        if (s && s.nickname) myNickname = s.nickname;
+        callApi({ type: 'groups' }, (d) => {
+          myGroups = (d && d.groups) || [];
           enterApp();
-        } else {
-          showGate();
-        }
-      };
-      const url = `${GAS_API_URL}?type=user&idToken=${encodeURIComponent(getFreshIdToken())}&callback=${cbName}`;
-      const script = document.createElement('script');
-      script.src = url;
-      script.onerror = function () {
-        delete window[cbName];
-        showGate(); // 設定の取得に失敗した場合は選択からやり直してもらう
-      };
-      document.body.appendChild(script);
+        }, enterApp);
+      }, enterApp);
     }
-
-    document.getElementById('soloModeBtn').addEventListener('click', () => {
-      saveUserSettings('solo', '', '');
-      enterApp();
-    });
-
-    document.getElementById('roomModeBtn').addEventListener('click', () => {
-      roomSetupError.textContent = '';
-      roomCodeInput.value = roomCode || '';
-      nicknameInput.value = nickname || '';
-      modeGate.style.display = 'none';
-      roomSetupArea.style.display = 'block';
-    });
-
-    document.getElementById('roomBackBtn').addEventListener('click', () => {
-      roomSetupArea.style.display = 'none';
-      modeGate.style.display = 'block';
-    });
-
-    document.getElementById('roomJoinBtn').addEventListener('click', () => {
-      const rc = roomCodeInput.value.trim();
-      const nick = nicknameInput.value.trim();
-      if (!rc || !nick) {
-        roomSetupError.textContent = '合言葉とニックネームの両方を入力してください';
-        return;
-      }
-      saveUserSettings('room', rc, nick);
-      enterApp();
-    });
-
-    document.getElementById('changeModeBtn').addEventListener('click', () => {
-      showGate();
-    });
 
     liff.init({ liffId: '2011303051-VhtUseuB' }).then(() => {
       if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -860,7 +1080,7 @@
         return;
       }
       userId = decoded.sub; // 画面内のキャッシュ用。サーバーには送らない
-      checkUserSettings();
+      initApp();
     }).catch((err) => {
       initialLoading.textContent = 'ログインエラー: ' + err;
     });
@@ -958,12 +1178,53 @@
       btn.addEventListener('click', () => setFormColor(btn.dataset.color));
     });
 
+    // ---- 公開範囲(自分だけ / グループ) ----
+    // グループに入っていない間は、この選択自体を出さない。新しい記録は毎回「自分だけ」から始める。
+    let formVisibility = 'private';
+    let formGroupIds = [];
+    const visBlock = document.getElementById('visBlock');
+    const visGroupsEl = document.getElementById('visGroups');
+
+    function updateVisibilityBlock() {
+      visBlock.style.display = myGroups.length ? 'block' : 'none';
+      renderVisGroups();
+    }
+    function renderVisGroups() {
+      visGroupsEl.innerHTML = '';
+      formGroupIds = formGroupIds.filter((id) => myGroups.some((g) => g.id === id));
+      myGroups.forEach((g) => {
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = formGroupIds.indexOf(g.id) !== -1;
+        cb.addEventListener('change', () => {
+          formGroupIds = formGroupIds.filter((id) => id !== g.id);
+          if (cb.checked) formGroupIds.push(g.id);
+        });
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(g.name));
+        visGroupsEl.appendChild(label);
+      });
+    }
+    function setFormVisibility(vis, ids) {
+      formVisibility = vis === 'group' ? 'group' : 'private';
+      formGroupIds = (ids || []).slice();
+      // グループがひとつだけなら、選ぶ手間を省くため最初からチェックしておく
+      if (formVisibility === 'group' && !formGroupIds.length && myGroups.length === 1) formGroupIds = [myGroups[0].id];
+      document.getElementById('visPrivate').classList.toggle('selected', formVisibility === 'private');
+      document.getElementById('visGroup').classList.toggle('selected', formVisibility === 'group');
+      visGroupsEl.style.display = formVisibility === 'group' ? 'block' : 'none';
+      renderVisGroups();
+    }
+    document.getElementById('visPrivate').addEventListener('click', () => setFormVisibility('private', []));
+    document.getElementById('visGroup').addEventListener('click', () => setFormVisibility('group', formGroupIds));
+
     // ---- 記録の概要(タップするとまずこれが出る。編集ボタンから編集フォームへ) ----
     const recordDetail = document.getElementById('recordDetail');
 
     function openRecordDetail(seg) {
       calendarArea.style.display = 'none';
-      document.getElementById('roomView').style.display = 'none';
+      document.getElementById('groupView').style.display = 'none'; setGroupBtnActive(false);
       recordForm.style.display = 'none';
       currentEditSegment = null;
       currentDetailSegment = seg;
@@ -974,6 +1235,9 @@
       const textEl = document.getElementById('detailText');
       textEl.textContent = seg.detail ? seg.detail : '(内容は入力されていません)';
       textEl.classList.toggle('empty', !seg.detail);
+      const names = seg.visibility === 'group' ? groupNamesOf(seg.groupIds) : [];
+      document.getElementById('detailVisibility').textContent =
+        seg.visibility === 'group' ? '👥 ' + (names.length ? names.join('、') + ' に公開' : 'グループに公開') : '🔒 自分だけ';
       recordDetail.style.display = 'block';
       recordDetail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -986,7 +1250,7 @@
     // seg が null なら新規追加、記録を渡せば編集
     function openRecordForm(seg) {
       calendarArea.style.display = 'none';
-      document.getElementById('roomView').style.display = 'none';
+      document.getElementById('groupView').style.display = 'none'; setGroupBtnActive(false);
       recordDetail.style.display = 'none';
       currentDetailSegment = null;
       currentEditSegment = seg || null;
@@ -994,6 +1258,9 @@
       formDeleteBtn.style.display = seg ? 'block' : 'none';
       formDetail.value = seg ? (seg.detail || '') : '';
       setFormColor(seg ? seg.color : lastUsedColor);
+      if (seg && seg.visibility === 'group') setFormVisibility('group', seg.groupIds);
+      else setFormVisibility('private', []);
+      updateVisibilityBlock();
       setActiveToggleBtn(seg ? null : 'timeAdjustBtn');
       // 非表示のままではホイールのスクロール位置を設定できないので、先に表示する
       recordForm.style.display = 'block';
@@ -1050,7 +1317,16 @@
         return;
       }
       const detail = formDetail.value;
+      const myVisibility = visBlock.style.display === 'none' ? 'private' : formVisibility;
+      const myGroupIdsNow = myVisibility === 'group' ? formGroupIds.filter((id) => myGroups.some((g) => g.id === id)) : [];
+      if (myVisibility === 'group' && !myGroupIdsNow.length) {
+        timeLabel.textContent = '見せるグループを1つ以上選んでください';
+        showCenterAlert('⚠️ 見せるグループを\n1つ以上選んでください');
+        return;
+      }
       lastUsedColor = formSelectedColor;
+      document.getElementById('f_visibility').value = myVisibility;
+      document.getElementById('f_groupIds').value = myGroupIdsNow.join(',');
 
       if (currentEditSegment) {
         const seg = currentEditSegment;
@@ -1063,6 +1339,8 @@
         submitSaveForm();
 
         seg.color = formSelectedColor;
+        seg.visibility = myVisibility;
+        seg.groupIds = myGroupIdsNow;
         seg.detail = detail;
         seg.startHour = start;
         seg.endHour = end;
@@ -1081,7 +1359,7 @@
         submitSaveForm();
 
         // 記録した時間帯を円グラフに固定表示として残す
-        addSegment({ id: newId, startHour: start, endHour: end, color: formSelectedColor, detail });
+        addSegment({ id: newId, startHour: start, endHour: end, color: formSelectedColor, detail, visibility: myVisibility, groupIds: myGroupIdsNow });
         timeLabel.textContent = '記録しました!続けて記録できます';
       }
       closeRecordForm();
@@ -1123,13 +1401,7 @@
         savedArcsGroup.innerHTML = '';
         savedSegments = [];
         records.forEach((r) => {
-          addSegment({
-            id: r.id,
-            startHour: Number(r.startHour),
-            endHour: Number(r.endHour),
-            color: normalizeColor(r.category),
-            detail: r.detail
-          });
+          addSegment(segFromRecord(r));
         });
         timeLabel.textContent = DEFAULT_LABEL;
         showClock();
