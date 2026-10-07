@@ -7,18 +7,17 @@
   <style>
     body { font-family: sans-serif; text-align: center; padding: 16px; background: #faf8f5; }
     #clock { touch-action: none; user-select: none; }
-    .category-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 2px solid #ccc; background: white; font-size: 14px; box-sizing: border-box; }
-    .category-btn.selected { border-color: #06c755; background: #eafaf0; }
+    .swatches { display: flex; justify-content: center; gap: 14px; margin: 14px 0 6px; }
+    .swatch { width: 38px; height: 38px; border-radius: 50%; border: 3px solid transparent; padding: 0; box-shadow: 0 0 0 1px rgba(0,0,0,0.12); }
+    .swatch.selected { border-color: #fff; box-shadow: 0 0 0 3px #333; }
     #timeLabel { font-size: 18px; margin: 12px 0; }
     #formDetail { width: 100%; box-sizing: border-box; padding: 10px; font-size: 14px; margin: 8px 0; }
     #closeBtn { background: none; color: #888; border: none; padding: 10px; font-size: 14px; margin-top: 20px; text-decoration: underline; }
-    #legend { font-size: 12px; margin: 8px 0; color: #555; }
-    #legend span { margin: 0 6px; }
     .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
     #timeAdjustBtn { background: none; border: 1px solid #888; color: #555; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; }
     #timeAdjustBtn.active, #calendarBtn.active { border-color: #06c755; color: #06c755; background: #eafaf0; }
 
-    #recordForm { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; text-align: left; max-width: 280px; margin-left: auto; margin-right: auto; }
+    #recordForm, #recordDetail { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; text-align: left; max-width: 280px; margin-left: auto; margin-right: auto; }
     #recordFormTitle { text-align: center; font-weight: bold; margin-bottom: 10px; }
     .time-block { background: white; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 10px; padding: 8px 0 4px; }
     .time-block-label { text-align: center; font-size: 13px; color: #666; }
@@ -66,9 +65,21 @@
 
     #summaryArea { border-top: 1px solid #ddd; margin-top: 24px; padding-top: 16px; padding-bottom: 8px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
     #summaryArea h4 { text-align: center; margin: 0 0 12px; font-size: 14px; color: #555; }
-    .summary-row { display: flex; align-items: center; padding: 10px 12px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
-    .summary-row .summary-label { flex: 1; margin-left: 6px; color: #555; }
-    .summary-row .summary-value { font-weight: bold; color: #222; }
+    .day-row { display: flex; align-items: center; padding: 10px 12px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
+    .day-row .dot { flex-shrink: 0; margin-right: 0; }
+    .day-row .day-time { font-weight: bold; margin: 0 10px 0 8px; white-space: nowrap; color: #222; }
+    .day-row .day-text { flex: 1; min-width: 0; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .day-empty { text-align: center; color: #999; font-size: 13px; padding: 8px 0; }
+    #dayTotal { text-align: center; font-size: 13px; color: #555; margin-top: 4px; }
+
+    .detail-card { background: white; border: 1px solid #ddd; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+    .detail-time { display: flex; align-items: center; font-size: 16px; font-weight: bold; }
+    .detail-time .dot { width: 14px; height: 14px; margin-right: 8px; }
+    #detailDuration { font-size: 13px; font-weight: normal; color: #888; margin-left: 8px; }
+    #detailText { margin-top: 10px; font-size: 15px; color: #222; white-space: pre-wrap; word-break: break-word; }
+    #detailText.empty { color: #aaa; font-size: 13px; }
+    #detailCloseBtn { background: #ccc; color: #333; }
+    #detailEditBtn { background: #06c755; color: white; }
 
     #initialLoading { padding: 60px 16px; color: #888; font-size: 15px; }
 
@@ -126,7 +137,7 @@
 
   <div id="mainApp" style="display:none;">
   <h3 id="dateHeading">記録</h3>
-  <div id="timeLabel">記録をタップすると編集できます。新しい記録は「時刻で調整」からどうぞ</div>
+  <div id="timeLabel">記録をタップすると内容を見られます。新しい記録は「時刻で調整」からどうぞ</div>
 
   <div id="clockWrap" class="loading">
     <svg id="clock" width="300" height="352" viewBox="0 0 300 352">
@@ -155,12 +166,6 @@
     </svg>
   </div>
 
-  <div id="legend">
-    <span><span class="dot" style="background:#ffb703;"></span>デジタルあり一人時間</span>
-    <span><span class="dot" style="background:#219ebc;"></span>デジタルなし一人時間</span>
-    <span><span class="dot" style="background:#9acd32;"></span>仕事・学校など</span>
-  </div>
-
   <button id="timeAdjustBtn">時刻で調整</button>
   <button id="calendarBtn">📅 日付を選ぶ</button>
   <button id="roomTabBtn" style="display:none;">🏠 部屋</button>
@@ -187,6 +192,18 @@
     <button id="roomViewCloseBtn">閉じる</button>
   </div>
 
+  <div id="recordDetail" style="display:none;">
+    <div style="text-align:center;font-weight:bold;margin-bottom:10px;">記録の概要</div>
+    <div class="detail-card">
+      <div class="detail-time"><span class="dot" id="detailDot"></span><span id="detailTime"></span><span id="detailDuration"></span></div>
+      <div id="detailText"></div>
+    </div>
+    <div style="text-align:center;">
+      <button class="form-btn" id="detailCloseBtn">閉じる</button>
+      <button class="form-btn" id="detailEditBtn">編集</button>
+    </div>
+  </div>
+
   <div id="recordForm" style="display:none;">
     <div id="recordFormTitle">時刻で調整</div>
     <div class="time-block">
@@ -207,10 +224,14 @@
         <div class="wheel" id="endMinuteWheel"></div>
       </div>
     </div>
-    <div class="category-btn form-category-btn" data-category="digital_alone">デジタルを触ってた自由な一人時間</div>
-    <div class="category-btn form-category-btn" data-category="offline_alone">デジタルを触ってない自由な一人時間</div>
-    <div class="category-btn form-category-btn" data-category="other">仕事・バイト・睡眠・学校・友だちと遊んでた時間</div>
-    <input type="text" id="formDetail" placeholder="具体的に何してた?(例: 散歩、読書)">
+    <div class="swatches">
+      <button type="button" class="swatch" data-color="red" aria-label="赤" style="background:#e74c3c;"></button>
+      <button type="button" class="swatch" data-color="blue" aria-label="青" style="background:#219ebc;"></button>
+      <button type="button" class="swatch" data-color="green" aria-label="緑" style="background:#6cc24a;"></button>
+      <button type="button" class="swatch" data-color="orange" aria-label="オレンジ" style="background:#ffb703;"></button>
+      <button type="button" class="swatch" data-color="pink" aria-label="ピンク" style="background:#ff7eb6;"></button>
+    </div>
+    <input type="text" id="formDetail" placeholder="内容(例: 散歩、読書)">
     <br>
     <div style="text-align:center;">
       <button class="form-btn" id="formCancelBtn">キャンセル</button>
@@ -222,22 +243,9 @@
   <button id="closeBtn">記録を終えて閉じる</button>
 
   <div id="summaryArea">
-    <h4>この日の内訳</h4>
-    <div class="summary-row">
-      <span class="dot" style="background:#ffb703;"></span>
-      <span class="summary-label">デジタルあり一人時間</span>
-      <span class="summary-value" id="summary-digital_alone-value">0分</span>
-    </div>
-    <div class="summary-row">
-      <span class="dot" style="background:#219ebc;"></span>
-      <span class="summary-label">デジタルなし一人時間</span>
-      <span class="summary-value" id="summary-offline_alone-value">0分</span>
-    </div>
-    <div class="summary-row">
-      <span class="dot" style="background:#9acd32;"></span>
-      <span class="summary-label">仕事・学校など</span>
-      <span class="summary-value" id="summary-other-value">0分</span>
-    </div>
+    <h4>この日の記録</h4>
+    <div id="dayList"></div>
+    <div id="dayTotal"></div>
   </div>
 
   <button id="changeModeBtn">使い方の設定を変更</button>
@@ -262,11 +270,20 @@
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzzjmzle-avGL42qkIRQueJOr4yjyNluwxpTWnAaZd_1TJyeUDCqlrW9Luy3QMXvxZzCQ/exec';
     document.getElementById('saveForm').action = GAS_API_URL;
 
-    const CATEGORY_COLORS = {
-      digital_alone: '#ffb703',
-      offline_alone: '#219ebc',
-      other: '#9acd32'
+    // 記録の色(カテゴリー分けはやめて、自分で選んだ色で分ける)
+    const COLORS = {
+      red: '#e74c3c',
+      blue: '#219ebc',
+      green: '#6cc24a',
+      orange: '#ffb703',
+      pink: '#ff7eb6'
     };
+    // 以前のカテゴリーで保存された記録は、近い色に読み替えて表示する
+    const LEGACY_COLOR = { digital_alone: 'orange', offline_alone: 'blue', other: 'green' };
+    function normalizeColor(value) {
+      if (COLORS[value]) return value;
+      return LEGACY_COLOR[value] || 'blue';
+    }
 
     const svg = document.getElementById('clock');
     const clockWrap = document.getElementById('clockWrap');
@@ -301,7 +318,7 @@
       clearTimeout(centerAlertTimer);
     });
 
-    // ---- その日の内訳(カテゴリーごとの合計時間) ----
+    // ---- その日の記録一覧(タップすると概要を表示) ----
     function formatDuration(hours) {
       const totalMinutes = Math.round(hours * 60);
       const h = Math.floor(totalMinutes / 60);
@@ -310,17 +327,37 @@
       if (m === 0) return `${h}時間`;
       return `${h}時間${m}分`;
     }
+    function segSweep(seg) {
+      let sweep = seg.endHour - seg.startHour;
+      if (sweep < 0) sweep += 24;
+      return sweep;
+    }
     function updateSummary() {
-      const totals = { digital_alone: 0, offline_alone: 0, other: 0 };
-      savedSegments.forEach((seg) => {
-        let sweep = seg.endHour - seg.startHour;
-        if (sweep < 0) sweep += 24;
-        if (totals[seg.category] !== undefined) totals[seg.category] += sweep;
+      const list = document.getElementById('dayList');
+      list.innerHTML = '';
+      const sorted = savedSegments.slice().sort((a, b) => a.startHour - b.startHour);
+      let total = 0;
+      sorted.forEach((seg) => {
+        total += segSweep(seg);
+        const row = document.createElement('div');
+        row.className = 'day-row';
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dot.style.background = COLORS[seg.color] || '#999';
+        const time = document.createElement('span');
+        time.className = 'day-time';
+        time.textContent = `${formatHour(seg.startHour)}〜${formatHour(seg.endHour)}`;
+        const text = document.createElement('span');
+        text.className = 'day-text';
+        text.textContent = seg.detail || '';
+        row.appendChild(dot);
+        row.appendChild(time);
+        row.appendChild(text);
+        row.addEventListener('click', () => openRecordDetail(seg));
+        list.appendChild(row);
       });
-      Object.keys(totals).forEach((cat) => {
-        const el = document.getElementById('summary-' + cat + '-value');
-        if (el) el.textContent = formatDuration(totals[cat]);
-      });
+      if (!sorted.length) list.innerHTML = '<div class="day-empty">まだ記録がありません</div>';
+      document.getElementById('dayTotal').textContent = sorted.length ? `記録した時間の合計: ${formatDuration(total)}` : '';
     }
 
     const CENTER = { x: 150, y: 176 };
@@ -450,7 +487,7 @@
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', describeArc(seg.startHour, sweep));
         path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', CATEGORY_COLORS[seg.category] || '#999');
+        path.setAttribute('stroke', COLORS[seg.color] || '#999');
         path.setAttribute('stroke-width', '24');
         path.setAttribute('stroke-linecap', 'round');
         savedArcsGroup.appendChild(path);
@@ -468,14 +505,14 @@
       const hour = posToHour(e.clientX, e.clientY);
       const hit = hour === null ? null : findSegmentAtHour(hour);
       if (hit) {
-        openRecordForm(hit);
-      } else if (currentEditSegment) {
+        openRecordDetail(hit);
+      } else if (currentEditSegment || currentDetailSegment) {
         closeRecordForm();
       }
     });
 
     let userId = null;
-    const DEFAULT_LABEL = '記録をタップすると編集できます。新しい記録は「時刻で調整」からどうぞ';
+    const DEFAULT_LABEL = '記録をタップすると内容を見られます。新しい記録は「時刻で調整」からどうぞ';
 
     // ---- 日ごとの記録のキャッシュ(再読み込みを速く感じさせるため) ----
     function cacheKey(uid, ds) {
@@ -675,7 +712,7 @@
             id: r.id,
             startHour: Number(r.startHour),
             endHour: Number(r.endHour),
-            category: r.category,
+            color: normalizeColor(r.category),
             detail: r.detail
           });
         });
@@ -874,29 +911,58 @@
     }
 
     let currentEditSegment = null;
-    let formSelectedCategory = null;
+    let currentDetailSegment = null;
+    let formSelectedColor = null;
+    let lastUsedColor = 'blue';
 
-    function setFormCategory(cat) {
-      formSelectedCategory = cat;
-      document.querySelectorAll('.form-category-btn').forEach((b) => {
-        b.classList.toggle('selected', b.dataset.category === cat);
+    function setFormColor(color) {
+      formSelectedColor = color;
+      document.querySelectorAll('.swatch').forEach((b) => {
+        b.classList.toggle('selected', b.dataset.color === color);
       });
-      formConfirmBtn.disabled = !cat;
+      formConfirmBtn.disabled = !color;
     }
 
-    document.querySelectorAll('.form-category-btn').forEach((btn) => {
-      btn.addEventListener('click', () => setFormCategory(btn.dataset.category));
+    document.querySelectorAll('.swatch').forEach((btn) => {
+      btn.addEventListener('click', () => setFormColor(btn.dataset.color));
     });
+
+    // ---- 記録の概要(タップするとまずこれが出る。編集ボタンから編集フォームへ) ----
+    const recordDetail = document.getElementById('recordDetail');
+
+    function openRecordDetail(seg) {
+      calendarArea.style.display = 'none';
+      document.getElementById('roomView').style.display = 'none';
+      recordForm.style.display = 'none';
+      currentEditSegment = null;
+      currentDetailSegment = seg;
+      setActiveToggleBtn(null);
+      document.getElementById('detailDot').style.background = COLORS[seg.color] || '#999';
+      document.getElementById('detailTime').textContent = `${formatHour(seg.startHour)}〜${formatHour(seg.endHour)}`;
+      document.getElementById('detailDuration').textContent = `(${formatDuration(segSweep(seg))})`;
+      const textEl = document.getElementById('detailText');
+      textEl.textContent = seg.detail ? seg.detail : '(内容は入力されていません)';
+      textEl.classList.toggle('empty', !seg.detail);
+      recordDetail.style.display = 'block';
+      recordDetail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    document.getElementById('detailEditBtn').addEventListener('click', () => {
+      if (currentDetailSegment) openRecordForm(currentDetailSegment);
+    });
+    document.getElementById('detailCloseBtn').addEventListener('click', () => closeRecordForm());
 
     // seg が null なら新規追加、記録を渡せば編集
     function openRecordForm(seg) {
       calendarArea.style.display = 'none';
       document.getElementById('roomView').style.display = 'none';
+      recordDetail.style.display = 'none';
+      currentDetailSegment = null;
       currentEditSegment = seg || null;
       recordFormTitle.textContent = seg ? '記録を編集' : '時刻で調整';
       formDeleteBtn.style.display = seg ? 'block' : 'none';
       formDetail.value = seg ? (seg.detail || '') : '';
-      setFormCategory(seg ? seg.category : null);
+      setFormColor(seg ? seg.color : lastUsedColor);
       setActiveToggleBtn(seg ? null : 'timeAdjustBtn');
       // 非表示のままではホイールのスクロール位置を設定できないので、先に表示する
       recordForm.style.display = 'block';
@@ -917,17 +983,25 @@
       if (seg) recordForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    // フォームも概要も閉じる
     function closeRecordForm() {
       recordForm.style.display = 'none';
+      recordDetail.style.display = 'none';
       currentEditSegment = null;
+      currentDetailSegment = null;
       setActiveToggleBtn(null);
     }
 
     document.getElementById('timeAdjustBtn').addEventListener('click', () => openRecordForm(null));
-    document.getElementById('formCancelBtn').addEventListener('click', closeRecordForm);
+    // 編集中にキャンセルしたら、その記録の概要に戻る
+    document.getElementById('formCancelBtn').addEventListener('click', () => {
+      const seg = currentEditSegment;
+      closeRecordForm();
+      if (seg) openRecordDetail(seg);
+    });
 
     formConfirmBtn.addEventListener('click', () => {
-      if (!formSelectedCategory) return;
+      if (!formSelectedColor) return;
       const start = readWheelValue(startHourWheel, startMinuteWheel);
       const end = readWheelValue(endHourWheel, endMinuteWheel);
       if (start === end) {
@@ -945,19 +1019,20 @@
         return;
       }
       const detail = formDetail.value;
+      lastUsedColor = formSelectedColor;
 
       if (currentEditSegment) {
         const seg = currentEditSegment;
         document.getElementById('f_action').value = 'update';
         document.getElementById('f_id').value = seg.id;
         document.getElementById('f_userId').value = userId;
-        document.getElementById('f_category').value = formSelectedCategory;
+        document.getElementById('f_category').value = formSelectedColor;
         document.getElementById('f_startHour').value = start;
         document.getElementById('f_endHour').value = end;
         document.getElementById('f_detail').value = detail;
         document.getElementById('saveForm').submit();
 
-        seg.category = formSelectedCategory;
+        seg.color = formSelectedColor;
         seg.detail = detail;
         seg.startHour = start;
         seg.endHour = end;
@@ -969,7 +1044,7 @@
         document.getElementById('f_action').value = 'create';
         document.getElementById('f_id').value = newId;
         document.getElementById('f_userId').value = userId;
-        document.getElementById('f_category').value = formSelectedCategory;
+        document.getElementById('f_category').value = formSelectedColor;
         document.getElementById('f_startHour').value = start;
         document.getElementById('f_endHour').value = end;
         document.getElementById('f_detail').value = detail;
@@ -977,7 +1052,7 @@
         document.getElementById('saveForm').submit();
 
         // 記録した時間帯を円グラフに固定表示として残す
-        addSegment({ id: newId, startHour: start, endHour: end, category: formSelectedCategory, detail });
+        addSegment({ id: newId, startHour: start, endHour: end, color: formSelectedColor, detail });
         timeLabel.textContent = '記録しました!続けて記録できます';
       }
       closeRecordForm();
@@ -1022,7 +1097,7 @@
             id: r.id,
             startHour: Number(r.startHour),
             endHour: Number(r.endHour),
-            category: r.category,
+            color: normalizeColor(r.category),
             detail: r.detail
           });
         });
