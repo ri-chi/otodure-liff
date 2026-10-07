@@ -140,29 +140,30 @@
   <div id="timeLabel">記録をタップすると内容を見られます。新しい記録は「時刻で調整」からどうぞ</div>
 
   <div id="clockWrap" class="loading">
-    <svg id="clock" width="300" height="352" viewBox="0 0 300 352">
+    <svg id="clock" width="300" height="300" viewBox="0 0 300 300">
       <defs>
         <mask id="moonMask">
-          <rect x="0" y="300" width="300" height="52" fill="white"/>
-          <circle cx="158" cy="327" r="10" fill="black"/>
+          <rect x="190" y="130" width="40" height="40" fill="white"/>
+          <circle cx="206" cy="146" r="8" fill="black"/>
         </mask>
       </defs>
       <g id="track"></g>
       <g id="savedArcs"></g>
       <g id="ticks"></g>
-      <text x="150" y="176" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#aaa" pointer-events="none">24時間</text>
-      <!-- 昼の12時(上)に太陽 -->
-      <g id="sunIcon" pointer-events="none">
-        <circle cx="150" cy="22" r="7" fill="#ffb703"/>
+      <!-- 左半分=午前(太陽)、右半分=午後(月) -->
+      <line x1="150" y1="118" x2="150" y2="182" stroke="#e3dfd8" stroke-width="1" pointer-events="none"/>
+      <g id="sunIcon" pointer-events="none" transform="translate(100,146)">
+        <circle cx="0" cy="0" r="6" fill="#ffb703"/>
         <g stroke="#ffb703" stroke-width="2" stroke-linecap="round">
-          <line x1="150" y1="9" x2="150" y2="5"/><line x1="150" y1="35" x2="150" y2="39"/>
-          <line x1="137" y1="22" x2="133" y2="22"/><line x1="163" y1="22" x2="167" y2="22"/>
-          <line x1="141" y1="13" x2="138" y2="10"/><line x1="159" y1="13" x2="162" y2="10"/>
-          <line x1="141" y1="31" x2="138" y2="34"/><line x1="159" y1="31" x2="162" y2="34"/>
+          <line x1="0" y1="-10" x2="0" y2="-13"/><line x1="0" y1="10" x2="0" y2="13"/>
+          <line x1="-10" y1="0" x2="-13" y2="0"/><line x1="10" y1="0" x2="13" y2="0"/>
+          <line x1="-7" y1="-7" x2="-9.5" y2="-9.5"/><line x1="7" y1="-7" x2="9.5" y2="-9.5"/>
+          <line x1="-7" y1="7" x2="-9.5" y2="9.5"/><line x1="7" y1="7" x2="9.5" y2="9.5"/>
         </g>
       </g>
-      <!-- 夜の12時(下)に月 -->
-      <circle id="moonIcon" cx="150" cy="330" r="11" fill="#6b78b0" mask="url(#moonMask)" pointer-events="none"/>
+      <circle id="moonIcon" cx="200" cy="146" r="10" fill="#6b78b0" mask="url(#moonMask)" pointer-events="none"/>
+      <text x="100" y="172" text-anchor="middle" font-size="15" font-weight="bold" fill="#c48a00" pointer-events="none">AM</text>
+      <text x="200" y="172" text-anchor="middle" font-size="15" font-weight="bold" fill="#6b78b0" pointer-events="none">PM</text>
     </svg>
   </div>
 
@@ -255,7 +256,7 @@
   <form id="saveForm" method="POST" target="hiddenFrame" style="display:none;">
     <input type="hidden" name="action" id="f_action">
     <input type="hidden" name="id" id="f_id">
-    <input type="hidden" name="userId" id="f_userId">
+    <input type="hidden" name="idToken" id="f_idToken">
     <input type="hidden" name="category" id="f_category">
     <input type="hidden" name="startHour" id="f_startHour">
     <input type="hidden" name="endHour" id="f_endHour">
@@ -360,7 +361,7 @@
       document.getElementById('dayTotal').textContent = sorted.length ? `記録した時間の合計: ${formatDuration(total)}` : '';
     }
 
-    const CENTER = { x: 150, y: 176 };
+    const CENTER = { x: 150, y: 150 };
     const today = new Date();
     function toDateStr(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -375,7 +376,7 @@
       return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     }
 
-    // ---- 24時間の円。一番上が昼の12時、一番下が夜の0時(時計とは並びが違う) ----
+    // ---- 24時間の円。一番上が12時、一番下が0時。左半分が午前(AM)、右半分が午後(PM) ----
     function hourToAngle(hour) {
       return ((hour - 12) / 24) * 2 * Math.PI - Math.PI / 2;
     }
@@ -512,6 +513,36 @@
     });
 
     let userId = null;
+
+    // ---- 本人確認(LINEのIDトークン) ----
+    // サーバーには userId ではなく IDトークンを送り、サーバー側で LINE に照会して本人を確定する。
+    // IDトークンは約1時間で失効するため、期限が近いときは再ログインして取り直す。
+    let reloginStarted = false;
+    function relogin() {
+      if (reloginStarted) return;
+      reloginStarted = true;
+      try { liff.logout(); } catch (e) {}
+      liff.login({ redirectUri: location.href });
+    }
+    function getFreshIdToken() {
+      const decoded = liff.getDecodedIDToken && liff.getDecodedIDToken();
+      const now = Math.floor(Date.now() / 1000);
+      if (!decoded || !decoded.exp || decoded.exp - now < 30) {
+        relogin();
+        return '';
+      }
+      return liff.getIDToken();
+    }
+    function submitSaveForm() {
+      const token = getFreshIdToken();
+      if (!token) return false;
+      document.getElementById('f_idToken').value = token;
+      document.getElementById('saveForm').submit();
+      return true;
+    }
+    function isAuthError(data) {
+      return !!(data && !Array.isArray(data) && data.error === 'auth');
+    }
     const DEFAULT_LABEL = '記録をタップすると内容を見られます。新しい記録は「時刻で調整」からどうぞ';
 
     // ---- 日ごとの記録のキャッシュ(再読み込みを速く感じさせるため) ----
@@ -661,9 +692,10 @@
       const cbName = 'handleRoomView_' + roomRequestCounter;
       window[cbName] = function (data) {
         delete window[cbName];
+        if (isAuthError(data)) { relogin(); return; }
         renderRoomView(data);
       };
-      const url = `${GAS_API_URL}?type=room&userId=${encodeURIComponent(userId)}&callback=${cbName}`;
+      const url = `${GAS_API_URL}?type=room&idToken=${encodeURIComponent(getFreshIdToken())}&callback=${cbName}`;
       const script = document.createElement('script');
       script.src = url;
       script.onerror = function () {
@@ -755,17 +787,17 @@
       roomCode = rc || '';
       nickname = nick || '';
       document.getElementById('f_action').value = 'setUser';
-      document.getElementById('f_userId').value = userId;
-      document.getElementById('f_mode').value = appMode;
+            document.getElementById('f_mode').value = appMode;
       document.getElementById('f_roomCode').value = roomCode;
       document.getElementById('f_nickname').value = nickname;
-      document.getElementById('saveForm').submit();
+      submitSaveForm();
     }
 
     function checkUserSettings() {
       const cbName = 'handleUserSettings_' + Date.now();
       window[cbName] = function (settings) {
         delete window[cbName];
+        if (isAuthError(settings)) { relogin(); return; }
         if (settings && settings.mode) {
           appMode = settings.mode;
           roomCode = settings.roomCode || '';
@@ -775,7 +807,7 @@
           showGate();
         }
       };
-      const url = `${GAS_API_URL}?type=user&userId=${encodeURIComponent(userId)}&callback=${cbName}`;
+      const url = `${GAS_API_URL}?type=user&idToken=${encodeURIComponent(getFreshIdToken())}&callback=${cbName}`;
       const script = document.createElement('script');
       script.src = url;
       script.onerror = function () {
@@ -820,16 +852,15 @@
 
     liff.init({ liffId: '2011303051-VhtUseuB' }).then(() => {
       if (!liff.isLoggedIn()) { liff.login(); return; }
-      const idToken = liff.getDecodedIDToken && liff.getDecodedIDToken();
-      if (idToken && idToken.sub) {
-        userId = idToken.sub;
-        checkUserSettings();
+      // 本人確認にはIDトークンが必須。取れない/期限切れなら再ログインする
+      const decoded = liff.getDecodedIDToken && liff.getDecodedIDToken();
+      const now = Math.floor(Date.now() / 1000);
+      if (!decoded || !decoded.sub || !decoded.exp || decoded.exp - now < 30) {
+        relogin();
         return;
       }
-      return liff.getProfile().then((profile) => {
-        userId = profile.userId;
-        checkUserSettings();
-      });
+      userId = decoded.sub; // 画面内のキャッシュ用。サーバーには送らない
+      checkUserSettings();
     }).catch((err) => {
       initialLoading.textContent = 'ログインエラー: ' + err;
     });
@@ -1025,12 +1056,11 @@
         const seg = currentEditSegment;
         document.getElementById('f_action').value = 'update';
         document.getElementById('f_id').value = seg.id;
-        document.getElementById('f_userId').value = userId;
-        document.getElementById('f_category').value = formSelectedColor;
+                document.getElementById('f_category').value = formSelectedColor;
         document.getElementById('f_startHour').value = start;
         document.getElementById('f_endHour').value = end;
         document.getElementById('f_detail').value = detail;
-        document.getElementById('saveForm').submit();
+        submitSaveForm();
 
         seg.color = formSelectedColor;
         seg.detail = detail;
@@ -1043,13 +1073,12 @@
         const newId = genId();
         document.getElementById('f_action').value = 'create';
         document.getElementById('f_id').value = newId;
-        document.getElementById('f_userId').value = userId;
-        document.getElementById('f_category').value = formSelectedColor;
+                document.getElementById('f_category').value = formSelectedColor;
         document.getElementById('f_startHour').value = start;
         document.getElementById('f_endHour').value = end;
         document.getElementById('f_detail').value = detail;
         document.getElementById('f_date').value = dateStr;
-        document.getElementById('saveForm').submit();
+        submitSaveForm();
 
         // 記録した時間帯を円グラフに固定表示として残す
         addSegment({ id: newId, startHour: start, endHour: end, color: formSelectedColor, detail });
@@ -1063,8 +1092,7 @@
       const seg = currentEditSegment;
       document.getElementById('f_action').value = 'delete';
       document.getElementById('f_id').value = seg.id;
-      document.getElementById('f_userId').value = userId;
-      document.getElementById('saveForm').submit();
+            submitSaveForm();
 
       savedSegments = savedSegments.filter((x) => x !== seg);
       updateSummary();
@@ -1086,8 +1114,10 @@
       requestCounter += 1;
       const cbName = 'handleTodayRecords_' + requestCounter;
       window[cbName] = function (records) {
-        saveToCache(userId, records, requestedDate);
         delete window[cbName];
+        if (isAuthError(records)) { relogin(); return; }
+        if (!Array.isArray(records)) { records = []; }
+        saveToCache(userId, records, requestedDate);
         if (requestedDate !== dateStr) return; // その間に別の日に切り替えていたら描画しない
         // キャッシュ表示と実際のデータがズレないよう、最新のサーバーデータで描き直す
         savedArcsGroup.innerHTML = '';
@@ -1104,7 +1134,7 @@
         timeLabel.textContent = DEFAULT_LABEL;
         showClock();
       };
-      const url = `${GAS_API_URL}?userId=${encodeURIComponent(userId)}&date=${requestedDate}&callback=${cbName}`;
+      const url = `${GAS_API_URL}?idToken=${encodeURIComponent(getFreshIdToken())}&date=${requestedDate}&callback=${cbName}`;
       const script = document.createElement('script');
       script.src = url;
       script.onerror = function () {
