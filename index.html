@@ -10,7 +10,8 @@
     .swatches { display: flex; justify-content: center; gap: 14px; margin: 14px 0 6px; }
     .swatch { width: 38px; height: 38px; border-radius: 50%; border: 3px solid transparent; padding: 0; box-shadow: 0 0 0 1px rgba(0,0,0,0.12); }
     .swatch.selected { border-color: #fff; box-shadow: 0 0 0 3px #333; }
-    #timeLabel { font-size: 18px; margin: 12px 0; }
+    #timeLabel { font-size: 13px; color: #555; margin: 6px 0 10px; }
+    #timeLabel:empty { display: none; }
     #formDetail { width: 100%; box-sizing: border-box; padding: 10px; font-size: 14px; margin: 8px 0; }
     #closeBtn { background: none; color: #888; border: none; padding: 10px; font-size: 14px; margin-top: 20px; text-decoration: underline; }
     .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
@@ -50,9 +51,10 @@
     .cal-day.selected { background: #06c755; color: white; }
     #calendarArea #calTodayBtn, #calendarArea #calCloseBtn { padding: 10px 18px; border-radius: 20px; border: none; font-size: 13px; margin: 6px 4px; background: #ccc; color: #333; }
 
-    #groupBtn { background: none; border: 1px solid #888; color: #555; border-radius: 20px; padding: 8px 18px; font-size: 13px; margin-top: 10px; margin-left: 6px; }
-    #groupBtn.active { border-color: #06c755; color: #06c755; background: #eafaf0; }
-    #groupView { border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
+    #tabs { display: flex; max-width: 300px; margin: 0 auto 12px; background: #ece8e1; border-radius: 12px; padding: 3px; }
+    .tab { flex: 1; padding: 9px 0; border: none; background: none; border-radius: 10px; font-size: 14px; color: #777; }
+    .tab.active { background: #fff; color: #06a047; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+    #groupView { padding-top: 4px; max-width: 280px; margin-left: auto; margin-right: auto; text-align: left; }
     #groupView h4 { text-align: center; margin: 0 0 12px; font-size: 14px; color: #555; }
     .g-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
     .g-row .g-name { font-weight: bold; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -133,57 +135,10 @@
   <div id="initialLoading">読み込み中...</div>
 
   <div id="mainApp" style="display:none;">
-  <h3 id="dateHeading">記録</h3>
-  <div id="timeLabel">記録をタップすると内容を見られます。新しい記録は「時刻で調整」からどうぞ</div>
-
-  <div id="clockWrap" class="loading">
-    <svg id="clock" width="300" height="300" viewBox="0 0 300 300">
-      <defs>
-        <mask id="moonMask">
-          <rect x="190" y="130" width="40" height="40" fill="white"/>
-          <circle cx="206" cy="146" r="8" fill="black"/>
-        </mask>
-      </defs>
-      <g id="track"></g>
-      <g id="savedArcs"></g>
-      <g id="ticks"></g>
-      <!-- 左半分=午前(太陽)、右半分=午後(月) -->
-      <line x1="150" y1="118" x2="150" y2="182" stroke="#e3dfd8" stroke-width="1" pointer-events="none"/>
-      <g id="sunIcon" pointer-events="none" transform="translate(100,146)">
-        <circle cx="0" cy="0" r="6" fill="#ffb703"/>
-        <g stroke="#ffb703" stroke-width="2" stroke-linecap="round">
-          <line x1="0" y1="-10" x2="0" y2="-13"/><line x1="0" y1="10" x2="0" y2="13"/>
-          <line x1="-10" y1="0" x2="-13" y2="0"/><line x1="10" y1="0" x2="13" y2="0"/>
-          <line x1="-7" y1="-7" x2="-9.5" y2="-9.5"/><line x1="7" y1="-7" x2="9.5" y2="-9.5"/>
-          <line x1="-7" y1="7" x2="-9.5" y2="9.5"/><line x1="7" y1="7" x2="9.5" y2="9.5"/>
-        </g>
-      </g>
-      <circle id="moonIcon" cx="200" cy="146" r="10" fill="#6b78b0" mask="url(#moonMask)" pointer-events="none"/>
-      <text x="100" y="172" text-anchor="middle" font-size="15" font-weight="bold" fill="#c48a00" pointer-events="none">AM</text>
-      <text x="200" y="172" text-anchor="middle" font-size="15" font-weight="bold" fill="#6b78b0" pointer-events="none">PM</text>
-    </svg>
+  <div id="tabs">
+    <button class="tab active" id="tabMine">自分</button>
+    <button class="tab" id="tabGroup">グループ</button>
   </div>
-
-  <button id="timeAdjustBtn">時刻で調整</button>
-  <button id="calendarBtn">📅 日付を選ぶ</button>
-  <button id="groupBtn">👥 グループ</button>
-
-  <div id="calendarArea" style="display:none;">
-    <div id="calHeader">
-      <button id="calPrevBtn">‹</button>
-      <span id="calMonthLabel"></span>
-      <button id="calNextBtn">›</button>
-    </div>
-    <div id="calWeekdays">
-      <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
-    </div>
-    <div id="calGrid"></div>
-    <div style="text-align:center;">
-      <button id="calTodayBtn">今日に戻る</button>
-      <button id="calCloseBtn">閉じる</button>
-    </div>
-  </div>
-
   <div id="groupView" style="display:none;">
     <div id="groupListPane">
       <h4>グループ</h4>
@@ -205,7 +160,6 @@
         <button class="g-btn" id="joinGroupBtn">参加</button>
       </div>
       <div id="groupMsg"></div>
-      <div class="g-center"><button class="g-btn gray" id="groupCloseBtn">閉じる</button></div>
     </div>
     <div id="groupFeedPane" style="display:none;">
       <h4 id="feedTitle"></h4>
@@ -225,6 +179,58 @@
         <button class="g-btn gray" id="feedBackBtn">戻る</button>
         <button class="g-btn gray" id="feedLeaveBtn">このグループを抜ける</button>
       </div>
+    </div>
+  </div>
+
+  <div id="minePane">
+  <div id="timeLabel"></div>
+
+  <div id="clockWrap" class="loading">
+    <svg id="clock" width="300" height="300" viewBox="0 0 300 300">
+      <defs>
+        <mask id="moonMask">
+          <rect x="190" y="130" width="40" height="40" fill="white"/>
+          <circle cx="206" cy="146" r="8" fill="black"/>
+        </mask>
+      </defs>
+      <g id="track"></g>
+      <g id="savedArcs"></g>
+      <g id="ticks"></g>
+      <!-- 左半分=午前(太陽)、右半分=午後(月) -->
+      <text id="centerYear" x="150" y="132" text-anchor="middle" font-size="12" fill="#999" pointer-events="none"></text>
+      <text id="centerDate" x="150" y="154" text-anchor="middle" font-size="22" font-weight="bold" fill="#444" pointer-events="none"></text>
+      <text id="centerWeekday" x="150" y="172" text-anchor="middle" font-size="12" fill="#999" pointer-events="none"></text>
+      <g id="sunIcon" pointer-events="none" transform="translate(100,146)">
+        <circle cx="0" cy="0" r="6" fill="#ffb703"/>
+        <g stroke="#ffb703" stroke-width="2" stroke-linecap="round">
+          <line x1="0" y1="-10" x2="0" y2="-13"/><line x1="0" y1="10" x2="0" y2="13"/>
+          <line x1="-10" y1="0" x2="-13" y2="0"/><line x1="10" y1="0" x2="13" y2="0"/>
+          <line x1="-7" y1="-7" x2="-9.5" y2="-9.5"/><line x1="7" y1="-7" x2="9.5" y2="-9.5"/>
+          <line x1="-7" y1="7" x2="-9.5" y2="9.5"/><line x1="7" y1="7" x2="9.5" y2="9.5"/>
+        </g>
+      </g>
+      <circle id="moonIcon" cx="200" cy="146" r="10" fill="#6b78b0" mask="url(#moonMask)" pointer-events="none"/>
+      <text x="100" y="172" text-anchor="middle" font-size="15" font-weight="bold" fill="#c48a00" pointer-events="none">AM</text>
+      <text x="200" y="172" text-anchor="middle" font-size="15" font-weight="bold" fill="#6b78b0" pointer-events="none">PM</text>
+    </svg>
+  </div>
+
+  <button id="timeAdjustBtn">時刻で調整</button>
+  <button id="calendarBtn">📅 日付を選ぶ</button>
+
+  <div id="calendarArea" style="display:none;">
+    <div id="calHeader">
+      <button id="calPrevBtn">‹</button>
+      <span id="calMonthLabel"></span>
+      <button id="calNextBtn">›</button>
+    </div>
+    <div id="calWeekdays">
+      <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+    </div>
+    <div id="calGrid"></div>
+    <div style="text-align:center;">
+      <button id="calTodayBtn">今日に戻る</button>
+      <button id="calCloseBtn">閉じる</button>
     </div>
   </div>
 
@@ -290,6 +296,7 @@
     <h4>この日の記録</h4>
     <div id="dayList"></div>
     <div id="dayTotal"></div>
+  </div>
   </div>
 
   </div>
@@ -415,8 +422,14 @@
     }
     let selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     let dateStr = toDateStr(selectedDate);
-    document.getElementById('dateHeading').textContent =
-      `${selectedDate.getFullYear()}/${selectedDate.getMonth() + 1}/${selectedDate.getDate()}の記録`;
+    // 円の中央に、表示中の日付(西暦・月/日・曜日)を出す
+    function updateCenterDate() {
+      const wd = ['日', '月', '火', '水', '木', '金', '土'][selectedDate.getDay()];
+      document.getElementById('centerYear').textContent = String(selectedDate.getFullYear());
+      document.getElementById('centerDate').textContent = `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}`;
+      document.getElementById('centerWeekday').textContent = `(${wd})`;
+    }
+    updateCenterDate();
     const RADIUS = 120;
 
     function genId() {
@@ -603,7 +616,13 @@
     function isAuthError(data) {
       return !!(data && !Array.isArray(data) && data.error === 'auth');
     }
-    const DEFAULT_LABEL = '記録をタップすると内容を見られます。新しい記録は「時刻で調整」からどうぞ';
+    const DEFAULT_LABEL = '';
+    // 状態メッセージ(保存しました、など)は数秒で消す。「読み込み中」だけは読み込みが終わるまで出す
+    new MutationObserver(() => {
+      const t = timeLabel.textContent;
+      if (!t || t === '読み込み中...') return;
+      setTimeout(() => { if (timeLabel.textContent === t) timeLabel.textContent = ''; }, 4000);
+    }).observe(timeLabel, { childList: true, characterData: true, subtree: true });
 
     // ---- 日ごとの記録のキャッシュ(再読み込みを速く感じさせるため) ----
     function cacheKey(uid, ds) {
@@ -767,9 +786,27 @@
     const groupFeedPane = document.getElementById('groupFeedPane');
     const groupMsg = document.getElementById('groupMsg');
 
+    // ---- 上のタブ(自分 / グループ) ----
     function setGroupBtnActive(on) {
-      document.getElementById('groupBtn').classList.toggle('active', on);
+      document.getElementById('tabGroup').classList.toggle('active', on);
+      document.getElementById('tabMine').classList.toggle('active', !on);
     }
+    function showTab(name) {
+      const mine = document.getElementById('minePane');
+      if (name === 'group') {
+        closeRecordForm();
+        calendarArea.style.display = 'none';
+        setActiveToggleBtn(null);
+        mine.style.display = 'none';
+        openGroupView();
+      } else {
+        groupView.style.display = 'none';
+        setGroupBtnActive(false);
+        mine.style.display = 'block';
+      }
+    }
+    document.getElementById('tabMine').addEventListener('click', () => showTab('mine'));
+    document.getElementById('tabGroup').addEventListener('click', () => showTab('group'));
     function groupNamesOf(ids) {
       return (ids || []).map((id) => {
         const g = myGroups.find((x) => x.id === id);
@@ -811,27 +848,18 @@
     }
 
     function openGroupView() {
-      closeRecordForm();
-      calendarArea.style.display = 'none';
-      setActiveToggleBtn(null);
       document.getElementById('nickInput').value = myNickname;
       setGroupMsg('');
-      groupListPane.style.display = 'block';
-      groupFeedPane.style.display = 'none';
+      // グループの中を見ていたなら、そのまま続きから表示する
+      if (!feedGroup) {
+        groupListPane.style.display = 'block';
+        groupFeedPane.style.display = 'none';
+      }
       groupView.style.display = 'block';
       setGroupBtnActive(true);
       renderGroupList();
       refreshGroups();
-      groupView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    document.getElementById('groupBtn').addEventListener('click', () => {
-      if (groupView.style.display === 'block') { groupView.style.display = 'none'; setGroupBtnActive(false); return; }
-      openGroupView();
-    });
-    document.getElementById('groupCloseBtn').addEventListener('click', () => {
-      groupView.style.display = 'none';
-      setGroupBtnActive(false);
-    });
 
     document.getElementById('nickSaveBtn').addEventListener('click', () => {
       const nick = document.getElementById('nickInput').value.trim();
@@ -1047,8 +1075,7 @@
       }
       selectedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       dateStr = toDateStr(selectedDate);
-      document.getElementById('dateHeading').textContent =
-        `${selectedDate.getFullYear()}/${selectedDate.getMonth() + 1}/${selectedDate.getDate()}の記録`;
+      updateCenterDate();
       closeRecordForm();
       setActiveToggleBtn(null);
       savedArcsGroup.innerHTML = '';
