@@ -75,6 +75,16 @@
     #feedDateNav button { background: none; border: none; font-size: 20px; color: #06c755; padding: 4px 12px; }
     #feedDateNav button:disabled { color: #ccc; }
     #feedDateLabel { font-weight: bold; font-size: 14px; }
+    #feedChips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 6px 0 4px; }
+    .chip { padding: 6px 12px; border-radius: 16px; border: 1px solid #ccc; background: #fff; font-size: 13px; color: #555; }
+    .chip.active { border-color: #06c755; background: #eafaf0; color: #06a047; font-weight: bold; }
+    #feedClockWrap { width: 300px; margin: 0 auto; }
+    #feedClock { touch-action: none; user-select: none; }
+    #feedSummary { text-align: center; font-size: 13px; color: #555; margin: 2px 0 8px; }
+    #feedDetail .detail-card { margin: 0 0 10px; }
+    .detail-actions { display: flex; align-items: center; justify-content: flex-end; margin-top: 8px; }
+    .feed-row.selected { border-color: #06c755; background: #eafaf0; }
+    .feed-row { cursor: pointer; }
     .feed-member { margin-bottom: 14px; }
     .feed-member-head { font-size: 13px; font-weight: bold; color: #333; margin-bottom: 6px; display: flex; justify-content: space-between; }
     .feed-member-head .sub { font-weight: normal; color: #888; }
@@ -167,12 +177,42 @@
       <div class="g-center" style="margin-bottom:8px;">
         <button class="g-btn" id="shareCodeBtn" style="display:none;">LINEで招待を送る</button>
       </div>
-      <div id="feedMembers"></div>
       <div id="feedDateNav">
         <button id="feedPrev">‹</button>
         <span id="feedDateLabel"></span>
         <button id="feedNext">›</button>
       </div>
+      <div id="feedChips"></div>
+      <div id="feedClockWrap">
+        <svg id="feedClock" width="300" height="300" viewBox="0 0 300 300">
+          <defs>
+            <mask id="fMoonMask">
+              <rect x="190" y="130" width="40" height="40" fill="white"/>
+              <circle cx="206" cy="146" r="8" fill="black"/>
+            </mask>
+          </defs>
+          <g id="feedTrack"></g>
+          <g id="feedArcs"></g>
+          <g id="feedTicks"></g>
+          <text id="feedCenterYear" x="150" y="132" text-anchor="middle" font-size="12" fill="#999" pointer-events="none"></text>
+          <text id="feedCenterDate" x="150" y="154" text-anchor="middle" font-size="22" font-weight="bold" fill="#444" pointer-events="none"></text>
+          <text id="feedCenterWeekday" x="150" y="172" text-anchor="middle" font-size="12" fill="#999" pointer-events="none"></text>
+          <g pointer-events="none" transform="translate(100,146)">
+            <circle cx="0" cy="0" r="6" fill="#ffb703"/>
+            <g stroke="#ffb703" stroke-width="2" stroke-linecap="round">
+              <line x1="0" y1="-10" x2="0" y2="-13"/><line x1="0" y1="10" x2="0" y2="13"/>
+              <line x1="-10" y1="0" x2="-13" y2="0"/><line x1="10" y1="0" x2="13" y2="0"/>
+              <line x1="-7" y1="-7" x2="-9.5" y2="-9.5"/><line x1="7" y1="-7" x2="9.5" y2="-9.5"/>
+              <line x1="-7" y1="7" x2="-9.5" y2="9.5"/><line x1="7" y1="7" x2="9.5" y2="9.5"/>
+            </g>
+          </g>
+          <circle cx="200" cy="146" r="10" fill="#6b78b0" mask="url(#fMoonMask)" pointer-events="none"/>
+          <text x="100" y="172" text-anchor="middle" font-size="15" font-weight="bold" fill="#c48a00" pointer-events="none">AM</text>
+          <text x="200" y="172" text-anchor="middle" font-size="15" font-weight="bold" fill="#6b78b0" pointer-events="none">PM</text>
+        </svg>
+      </div>
+      <div id="feedSummary"></div>
+      <div id="feedDetail"></div>
       <div id="feedList"></div>
       <div id="feedMsg" style="min-height:16px;font-size:12px;color:#e74c3c;text-align:center;margin:6px 0;"></div>
       <div class="g-center">
@@ -454,47 +494,50 @@
       return `M ${p1.x} ${p1.y} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${p2.x} ${p2.y}`;
     }
 
-    // 土台の輪: 左半分(午前 0〜12時)は太陽の色、右半分(午後 12〜24時)は月の色にする
-    [[0, '#f6efdc'], [12, '#dfe3ee']].forEach(([from, color]) => {
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', describeArc(from, 12));
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', color);
-      path.setAttribute('stroke-width', '24');
-      trackGroup.appendChild(path);
-    });
+    function buildDialBase(trackG, ticksG) {
+      // 土台の輪: 左半分(午前 0〜12時)は太陽の色、右半分(午後 12〜24時)は月の色にする
+      [[0, '#f6efdc'], [12, '#dfe3ee']].forEach(([from, color]) => {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', describeArc(from, 12));
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', color);
+        path.setAttribute('stroke-width', '24');
+        trackG.appendChild(path);
+      });
 
-    // 目盛り(1時間ごと)と、0・6・12・18 の数字だけ表示する
-    for (let h = 0; h < 24; h++) {
-      const major = h % 6 === 0;
-      const inner = polar(h, RADIUS - (major ? 12 : 6));
-      const outer = polar(h, RADIUS + (major ? 12 : 6));
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', inner.x); line.setAttribute('y1', inner.y);
-      line.setAttribute('x2', outer.x); line.setAttribute('y2', outer.y);
-      line.setAttribute('stroke', major ? '#999' : '#c8c8c8');
-      line.setAttribute('stroke-width', major ? '2' : '1');
-      ticksGroup.appendChild(line);
+      // 目盛り(1時間ごと)と、0・6・12・18 の数字だけ表示する
+      for (let h = 0; h < 24; h++) {
+        const major = h % 6 === 0;
+        const inner = polar(h, RADIUS - (major ? 12 : 6));
+        const outer = polar(h, RADIUS + (major ? 12 : 6));
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', inner.x); line.setAttribute('y1', inner.y);
+        line.setAttribute('x2', outer.x); line.setAttribute('y2', outer.y);
+        line.setAttribute('stroke', major ? '#999' : '#c8c8c8');
+        line.setAttribute('stroke-width', major ? '2' : '1');
+        ticksG.appendChild(line);
 
-      if (major) {
-        const pos = polar(h, RADIUS - 32);
-        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        label.setAttribute('x', pos.x);
-        label.setAttribute('y', pos.y);
-        label.setAttribute('text-anchor', 'middle');
-        label.setAttribute('dominant-baseline', 'central');
-        label.setAttribute('font-size', '15');
-        label.setAttribute('font-weight', 'bold');
-        label.setAttribute('fill', '#666');
-        label.setAttribute('pointer-events', 'none');
-        label.textContent = String(h);
-        ticksGroup.appendChild(label);
+        if (major) {
+          const pos = polar(h, RADIUS - 32);
+          const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          label.setAttribute('x', pos.x);
+          label.setAttribute('y', pos.y);
+          label.setAttribute('text-anchor', 'middle');
+          label.setAttribute('dominant-baseline', 'central');
+          label.setAttribute('font-size', '15');
+          label.setAttribute('font-weight', 'bold');
+          label.setAttribute('fill', '#666');
+          label.setAttribute('pointer-events', 'none');
+          label.textContent = String(h);
+          ticksG.appendChild(label);
+        }
       }
     }
+    buildDialBase(trackGroup, ticksGroup);
 
     // タップされた位置を、実際の時刻(0〜24)に変換する。輪から離れた場所なら null
-    function posToHour(clientX, clientY) {
-      const rect = svg.getBoundingClientRect();
+    function posToHour(clientX, clientY, el) {
+      const rect = (el || svg).getBoundingClientRect();
       const scale = 300 / rect.width;
       const x = (clientX - rect.left) * scale - CENTER.x;
       const y = (clientY - rect.top) * scale - CENTER.y;
@@ -539,9 +582,10 @@
     }
 
     // 記録済みの時間帯を円に描き直す(日をまたぐ記録も1本の弧でつなげる)
-    function renderClockFace() {
-      savedArcsGroup.innerHTML = '';
-      savedSegments.forEach((seg) => {
+    function renderClockFace() { drawArcs(savedArcsGroup, savedSegments); }
+    function drawArcs(group, segs, selectedId) {
+      group.innerHTML = '';
+      segs.forEach((seg) => {
         let sweep = seg.endHour - seg.startHour;
         if (sweep < 0) sweep += 24;
         if (sweep <= 0) return;
@@ -551,7 +595,8 @@
         path.setAttribute('stroke', COLORS[seg.color] || '#999');
         path.setAttribute('stroke-width', '24');
         path.setAttribute('stroke-linecap', 'round');
-        savedArcsGroup.appendChild(path);
+        if (selectedId && seg.id !== selectedId) path.setAttribute('opacity', '0.45');
+        group.appendChild(path);
       });
     }
 
@@ -909,25 +954,40 @@
     const feedList = document.getElementById('feedList');
     const feedMsg = document.getElementById('feedMsg');
 
+    // ---- グループの中: メンバーを選ぶと、その人の1日を円グラフで見られる ----
+    let feedMembersList = null;     // [{key, nickname, isMe}]
+    let feedRecords = [];           // その日に公開された全員の記録
+    let feedSelectedKey = null;     // 見ているメンバー
+    let feedSelectedRecordId = null; // タップした記録
+    const feedClock = document.getElementById('feedClock');
+    const feedArcs = document.getElementById('feedArcs');
+    buildDialBase(document.getElementById('feedTrack'), document.getElementById('feedTicks'));
+
     function openGroupFeed(group) {
       feedGroup = group;
       feedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      feedMembersList = null;
+      feedRecords = [];
+      feedSelectedKey = null;
+      feedSelectedRecordId = null;
       groupListPane.style.display = 'none';
       groupFeedPane.style.display = 'block';
       groupView.style.display = 'block';
       setGroupBtnActive(true);
       document.getElementById('feedTitle').textContent = group.name;
       document.getElementById('feedCode').textContent = group.inviteCode;
-      document.getElementById('feedMembers').textContent = '';
       document.getElementById('shareCodeBtn').style.display =
         (liff.isApiAvailable && liff.isApiAvailable('shareTargetPicker')) ? 'inline-block' : 'none';
       resetLeaveBtn();
       feedMsg.textContent = '';
-      loadFeed();
+      document.getElementById('feedChips').innerHTML = '';
+      renderFeedView();
       callApi({ type: 'members', groupId: group.id }, (d) => {
-        if (feedGroup !== group || !d || !d.members) return;
-        document.getElementById('feedMembers').textContent = 'メンバー: ' + d.members.map((m) => m.nickname + (m.isMe ? '(自分)' : '')).join('、');
+        if (feedGroup !== group) return;
+        feedMembersList = (d && d.members) || [];
+        renderFeedView();
       });
+      loadFeed();
       groupView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
@@ -936,67 +996,133 @@
       const ds = toDateStr(feedDate);
       document.getElementById('feedDateLabel').textContent = `${feedDate.getFullYear()}/${feedDate.getMonth() + 1}/${feedDate.getDate()}`;
       document.getElementById('feedNext').disabled = isSameDate(feedDate, today) || isFutureDate(feedDate);
-      feedList.innerHTML = '<div class="g-empty">読み込み中...</div>';
       feedRequest += 1;
       const mine = feedRequest;
+      feedSelectedRecordId = null;
+      feedMsg.textContent = '';
       callApi({ type: 'feed', groupId: group.id, date: ds }, (d) => {
         if (mine !== feedRequest) return;
-        if (d && d.records) renderFeed(d.records);
-        else feedList.innerHTML = `<div class="g-empty" style="color:#e74c3c;">${GROUP_ERRORS[d && d.error] || '読み込めませんでした'}</div>`;
+        if (d && d.records) { feedRecords = d.records; renderFeedView(); }
+        else feedMsg.textContent = GROUP_ERRORS[d && d.error] || '読み込めませんでした';
       }, () => {
         if (mine !== feedRequest) return;
-        feedList.innerHTML = '<div class="g-empty" style="color:#e74c3c;">読み込みに失敗しました</div>';
+        feedMsg.textContent = '読み込みに失敗しました';
       });
     }
 
-    function renderFeed(records) {
-      feedList.innerHTML = '';
-      if (!records.length) {
-        feedList.innerHTML = '<div class="g-empty">この日にグループへ出された記録はありません</div>';
-        return;
-      }
-      const byMember = {};
-      const order = [];
-      records.forEach((r) => {
-        const key = (r.isMe ? '0_' : '1_') + r.nickname;
-        if (!byMember[key]) { byMember[key] = { nickname: r.nickname, isMe: r.isMe, list: [] }; order.push(key); }
-        byMember[key].list.push(r);
-      });
-      order.sort();
-      order.forEach((key) => {
-        const m = byMember[key];
-        m.list.sort((a, b) => Number(a.startHour) - Number(b.startHour));
-        const total = m.list.reduce((t, r) => t + segSweep({ startHour: Number(r.startHour), endHour: Number(r.endHour) }), 0);
-        const box = document.createElement('div');
-        box.className = 'feed-member';
-        box.innerHTML = `<div class="feed-member-head"><span>${escapeHtml(m.nickname)}${m.isMe ? '(自分)' : ''}</span><span class="sub">合計 ${formatDuration(total)}</span></div>`;
-        m.list.forEach((r) => {
-          const row = document.createElement('div');
-          row.className = 'feed-row';
-          const color = COLORS[normalizeColor(r.category)];
-          row.innerHTML = `<span class="dot" style="background:${color}"></span><span class="feed-time">${formatHour(Number(r.startHour))}〜${formatHour(Number(r.endHour))}</span><span class="feed-text">${escapeHtml(r.detail || '')}</span>`;
-          if (m.isMe) {
-            if (r.likeCount > 0) {
-              const c = document.createElement('span');
-              c.className = 'like-count';
-              c.textContent = '❤ ' + r.likeCount;
-              row.appendChild(c);
-            }
-          } else {
-            row.appendChild(makeLikeButton(r));
-          }
-          box.appendChild(row);
+    function feedSegs() {
+      return feedRecords.filter((r) => r.memberKey === feedSelectedKey).map((r) => ({
+        id: r.id,
+        startHour: Number(r.startHour),
+        endHour: Number(r.endHour),
+        color: normalizeColor(r.category),
+        detail: r.detail,
+        rec: r
+      })).sort((a, b) => a.startHour - b.startHour);
+    }
+
+    function renderFeedView() {
+      // メンバーの一覧(取得できるまでは、記録のある人から作る)
+      let members = feedMembersList;
+      if (!members) {
+        const seen = {};
+        members = [];
+        feedRecords.forEach((r) => {
+          if (!seen[r.memberKey]) { seen[r.memberKey] = true; members.push({ key: r.memberKey, nickname: r.nickname, isMe: r.isMe }); }
         });
-        feedList.appendChild(box);
+      }
+      members = members.slice().sort((a, b) => (b.isMe ? 1 : 0) - (a.isMe ? 1 : 0));
+      if (!members.some((m) => m.key === feedSelectedKey)) feedSelectedKey = members.length ? members[0].key : null;
+
+      const chips = document.getElementById('feedChips');
+      chips.innerHTML = '';
+      members.forEach((m) => {
+        const c = document.createElement('button');
+        c.className = 'chip' + (m.key === feedSelectedKey ? ' active' : '');
+        c.textContent = m.nickname + (m.isMe ? '(自分)' : '');
+        c.addEventListener('click', () => { feedSelectedKey = m.key; feedSelectedRecordId = null; renderFeedView(); });
+        chips.appendChild(c);
+      });
+
+      // 円の中央の日付
+      const wd = ['日', '月', '火', '水', '木', '金', '土'][feedDate.getDay()];
+      document.getElementById('feedCenterYear').textContent = String(feedDate.getFullYear());
+      document.getElementById('feedCenterDate').textContent = `${feedDate.getMonth() + 1}/${feedDate.getDate()}`;
+      document.getElementById('feedCenterWeekday').textContent = `(${wd})`;
+
+      const segs = feedSegs();
+      drawArcs(feedArcs, segs, feedSelectedRecordId);
+      const total = segs.reduce((t, g) => t + segSweep(g), 0);
+      document.getElementById('feedSummary').textContent = segs.length
+        ? `合計 ${formatDuration(total)}`
+        : (feedSelectedKey ? 'この日にグループへ出された記録はありません' : '');
+
+      renderFeedDetail(segs);
+      renderFeedList(segs);
+    }
+
+    function renderFeedDetail(segs) {
+      const box = document.getElementById('feedDetail');
+      box.innerHTML = '';
+      const g = segs.find((x) => x.id === feedSelectedRecordId);
+      if (!g) return;
+      const r = g.rec;
+      const card = document.createElement('div');
+      card.className = 'detail-card';
+      card.innerHTML = `<div class="detail-time"><span class="dot" style="background:${COLORS[g.color]}"></span><span>${formatHour(g.startHour)}〜${formatHour(g.endHour)}</span><span style="font-size:13px;font-weight:normal;color:#888;margin-left:8px;">(${formatDuration(segSweep(g))})</span></div>
+        <div style="margin-top:10px;font-size:15px;color:#222;white-space:pre-wrap;word-break:break-word;${g.detail ? '' : 'color:#aaa;font-size:13px;'}">${g.detail ? escapeHtml(g.detail) : '(内容は入力されていません)'}</div>`;
+      const actions = document.createElement('div');
+      actions.className = 'detail-actions';
+      if (r.isMe) {
+        if (r.likeCount > 0) {
+          const c = document.createElement('span');
+          c.className = 'like-count';
+          c.textContent = '❤ ' + r.likeCount;
+          actions.appendChild(c);
+        }
+      } else {
+        actions.appendChild(makeLikeButton(r, () => renderFeedList(feedSegs())));
+      }
+      card.appendChild(actions);
+      box.appendChild(card);
+    }
+
+    function renderFeedList(segs) {
+      feedList.innerHTML = '';
+      segs.forEach((g) => {
+        const r = g.rec;
+        const row = document.createElement('div');
+        row.className = 'feed-row' + (g.id === feedSelectedRecordId ? ' selected' : '');
+        row.innerHTML = `<span class="dot" style="background:${COLORS[g.color]}"></span><span class="feed-time">${formatHour(g.startHour)}〜${formatHour(g.endHour)}</span><span class="feed-text">${escapeHtml(g.detail || '')}</span>` +
+          (r.likeCount > 0 ? `<span class="like-count">❤ ${r.likeCount}</span>` : '');
+        row.addEventListener('click', () => selectFeedRecord(g.id));
+        feedList.appendChild(row);
       });
     }
 
-    function makeLikeButton(r) {
+    function selectFeedRecord(id) {
+      feedSelectedRecordId = feedSelectedRecordId === id ? null : id;
+      const segs = feedSegs();
+      drawArcs(feedArcs, segs, feedSelectedRecordId);
+      renderFeedDetail(segs);
+      renderFeedList(segs);
+    }
+
+    // 円の上の記録をタップすると、その記録の内容といいねが出る
+    feedClock.addEventListener('pointerdown', (e) => {
+      const hour = posToHour(e.clientX, e.clientY, feedClock);
+      const hit = hour === null ? null : feedSegs().find((g) => isHourInSegment(hour, g));
+      if (hit) selectFeedRecord(hit.id);
+      else if (feedSelectedRecordId) selectFeedRecord(feedSelectedRecordId);
+    });
+
+    function makeLikeButton(r, onChange) {
       const btn = document.createElement('button');
       btn.className = 'like-btn';
       const paint = () => {
         btn.classList.toggle('liked', !!r.liked);
         btn.textContent = (r.liked ? '❤ ' : '♡ ') + (r.likeCount || 0);
+        if (onChange) onChange();
       };
       paint();
       btn.addEventListener('click', () => {
