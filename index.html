@@ -394,8 +394,8 @@
       return `M ${p1.x} ${p1.y} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${p2.x} ${p2.y}`;
     }
 
-    // 土台の輪: 昼(6〜18時)は明るく、夜(18〜6時)は暗めの色にする
-    [[6, '#f6efdc'], [18, '#dfe3ee']].forEach(([from, color]) => {
+    // 土台の輪: 左半分(午前 0〜12時)は太陽の色、右半分(午後 12〜24時)は月の色にする
+    [[0, '#f6efdc'], [12, '#dfe3ee']].forEach(([from, color]) => {
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', describeArc(from, 12));
       path.setAttribute('fill', 'none');
