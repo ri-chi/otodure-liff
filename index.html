@@ -123,6 +123,8 @@
   window.onerror = function(message, source, lineno, colno, error) {
       var el = document.getElementById('timeLabel');
       if (el) el.textContent = 'JSエラー: ' + message + ' (行:' + lineno + ')';
+      var il = document.getElementById('initialLoading');
+      if (il && il.style.display !== 'none') il.textContent = 'エラー: ' + message + ' (行:' + lineno + ')';
     };
   </script>
 
@@ -698,6 +700,12 @@
     });
 
     calendarBtn.addEventListener('click', () => {
+      // 開いている状態でもう一度押したら閉じる
+      if (calendarArea.style.display === 'block') {
+        calendarArea.style.display = 'none';
+        setActiveToggleBtn(null);
+        return;
+      }
       closeRecordForm();
       document.getElementById('groupView').style.display = 'none'; setGroupBtnActive(false);
       calViewYear = selectedDate.getFullYear();
@@ -715,7 +723,19 @@
       apiCounter += 1;
       const cbName = 'api_' + apiCounter;
       const script = document.createElement('script');
+      let finished = false;
+      // サーバーが応答しない・エラーページが返ってきた場合でも、画面が固まらないよう10秒で諦める
+      const timer = setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        delete window[cbName];
+        script.remove();
+        if (onFail) onFail();
+      }, 10000);
       window[cbName] = function (data) {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
         delete window[cbName];
         script.remove();
         if (isAuthError(data)) { relogin(); return; }
@@ -724,6 +744,9 @@
       const q = Object.keys(params).map((k) => k + '=' + encodeURIComponent(params[k])).join('&');
       script.src = `${GAS_API_URL}?${q}&idToken=${encodeURIComponent(token)}&callback=${cbName}`;
       script.onerror = function () {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
         delete window[cbName];
         script.remove();
         if (onFail) onFail();
@@ -1290,7 +1313,14 @@
       setActiveToggleBtn(null);
     }
 
-    document.getElementById('timeAdjustBtn').addEventListener('click', () => openRecordForm(null));
+    document.getElementById('timeAdjustBtn').addEventListener('click', () => {
+      // 新しい記録のフォームが開いている状態でもう一度押したら閉じる
+      if (recordForm.style.display === 'block' && !currentEditSegment) {
+        closeRecordForm();
+        return;
+      }
+      openRecordForm(null);
+    });
     // 編集中にキャンセルしたら、その記録の概要に戻る
     document.getElementById('formCancelBtn').addEventListener('click', () => {
       const seg = currentEditSegment;
