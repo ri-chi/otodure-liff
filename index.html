@@ -3,6 +3,8 @@
 <head>
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://script.googleusercontent.com">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 16px; background: #faf8f5; }
@@ -314,7 +316,7 @@
       <button type="button" class="swatch" data-color="orange" aria-label="オレンジ" style="background:#ffb703;"></button>
       <button type="button" class="swatch" data-color="pink" aria-label="ピンク" style="background:#ff7eb6;"></button>
     </div>
-    <input type="text" id="formDetail" placeholder="内容(例: 散歩、読書)">
+    <input type="text" id="formDetail" maxlength="100" placeholder="内容(例: 散歩、読書)">
     <div id="visBlock" style="display:none;">
       <div class="vis-toggle">
         <button type="button" class="vis-btn selected" id="visPrivate">🔒 自分だけ</button>
@@ -341,23 +343,9 @@
 
   </div>
 
-  <iframe name="hiddenFrame" style="display:none;"></iframe>
-  <form id="saveForm" method="POST" target="hiddenFrame" style="display:none;">
-    <input type="hidden" name="action" id="f_action">
-    <input type="hidden" name="id" id="f_id">
-    <input type="hidden" name="idToken" id="f_idToken">
-    <input type="hidden" name="category" id="f_category">
-    <input type="hidden" name="startHour" id="f_startHour">
-    <input type="hidden" name="endHour" id="f_endHour">
-    <input type="hidden" name="detail" id="f_detail">
-    <input type="hidden" name="date" id="f_date">
-    <input type="hidden" name="visibility" id="f_visibility">
-    <input type="hidden" name="groupIds" id="f_groupIds">
-  </form>
 
   <script>
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzzjmzle-avGL42qkIRQueJOr4yjyNluwxpTWnAaZd_1TJyeUDCqlrW9Luy3QMXvxZzCQ/exec';
-    document.getElementById('saveForm').action = GAS_API_URL;
 
     // 記録の色(カテゴリー分けはやめて、自分で選んだ色で分ける)
     const COLORS = {
@@ -651,13 +639,6 @@
       }
       return liff.getIDToken();
     }
-    function submitSaveForm() {
-      const token = getFreshIdToken();
-      if (!token) return false;
-      document.getElementById('f_idToken').value = token;
-      document.getElementById('saveForm').submit();
-      return true;
-    }
     function isAuthError(data) {
       return !!(data && !Array.isArray(data) && data.error === 'auth');
     }
@@ -687,6 +668,25 @@
       } catch (e) {
         // 保存できない環境ではキャッシュを諦めるだけで、通常の読み込みは動く
       }
+    }
+
+    // 表示名とグループも覚えておいて、次に開いたときすぐ出せるようにする
+    function loadMeta() {
+      try { return JSON.parse(localStorage.getItem('otodure_meta_' + userId) || 'null'); } catch (e) { return null; }
+    }
+    function saveMeta() {
+      try { localStorage.setItem('otodure_meta_' + userId, JSON.stringify({ nickname: myNickname, groups: myGroups })); } catch (e) {}
+    }
+    // 画面にある記録を、そのまま端末のキャッシュにも書いておく(日付を切り替えて戻っても、古い内容が出ないように)
+    function segToRecord(g) {
+      return { id: g.id, category: g.color, startHour: g.startHour, endHour: g.endHour, detail: g.detail || '',
+        visibility: g.visibility === 'group' ? 'group' : 'private', groupIds: g.groupIds || [] };
+    }
+    let localVersion = 0;   // 自分の操作で記録を変えるたびに増やす(古い読み込み結果で上書きしないための目印)
+    let pendingWrites = 0;  // まだサーバーに届いていない保存の数
+    function commitLocalChange() {
+      localVersion += 1;
+      saveToCache(userId, savedSegments.map(segToRecord), dateStr);
     }
 
     // ---- 他の日の記録を見る(カレンダー) ----
@@ -844,6 +844,8 @@
         setActiveToggleBtn(null);
         mine.style.display = 'none';
         openGroupView();
+        // グループの中を見ていたなら、自分の記録の変更や、他の人の記録を反映するため読み直す
+        if (feedGroup) loadFeed();
       } else {
         groupView.style.display = 'none';
         setGroupBtnActive(false);
@@ -870,6 +872,7 @@
     function refreshGroups(done) {
       callApi({ type: 'groups' }, (d) => {
         myGroups = (d && d.groups) || [];
+        saveMeta();
         updateVisibilityBlock();
         renderGroupList();
         if (done) done();
@@ -910,7 +913,7 @@
       const nick = document.getElementById('nickInput').value.trim();
       if (!nick) { setGroupMsg('表示名を入力してください'); return; }
       callApi({ type: 'setNickname', nickname: nick }, (d) => {
-        if (d && d.ok) { myNickname = d.nickname; setGroupMsg('表示名を保存しました', true); }
+        if (d && d.ok) { myNickname = d.nickname; saveMeta(); setGroupMsg('表示名を保存しました', true); }
         else setGroupMsg(GROUP_ERRORS[d && d.error] || '保存できませんでした');
       }, () => setGroupMsg('通信に失敗しました'));
     });
@@ -1211,20 +1214,39 @@
       loadForSelectedDate();
     }
 
-    function loadForSelectedDate() {
+    // 端末のキャッシュにその日の記録があれば、すぐ描く(なければ false)
+    function renderFromCache() {
       const cached = loadFromCache(userId, dateStr);
-      const hasCache = !!(cached && cached.length);
-      if (hasCache) {
-        cached.forEach((r) => {
-          addSegment(segFromRecord(r));
-        });
-        timeLabel.textContent = DEFAULT_LABEL;
-        showClock();
-      }
+      if (!cached) return false;
+      cached.forEach((r) => addSegment(segFromRecord(r)));
+      timeLabel.textContent = DEFAULT_LABEL;
+      showClock();
+      return true;
+    }
+
+    function loadForSelectedDate() {
+      const hasCache = renderFromCache();
       loadTodayRecords(!hasCache);
     }
 
-    // ---- 起動: 表示名とグループを読み込んでから画面を出す ----
+    // サーバーから届いた記録で描き直す。その間に自分で記録を変えていたら、新しいのは手元なので捨てる
+    function applyServerRecords(records, ds, versionAtRequest) {
+      if (ds !== dateStr) return;
+      if (versionAtRequest !== localVersion || pendingWrites > 0) {
+        // 手元のほうが新しいので、サーバーの結果は使わない。読み込み中の表示だけ片づける
+        if (timeLabel.textContent === '読み込み中...') timeLabel.textContent = DEFAULT_LABEL;
+        showClock();
+        return;
+      }
+      saveToCache(userId, records, ds);
+      savedArcsGroup.innerHTML = '';
+      savedSegments = [];
+      records.forEach((r) => addSegment(segFromRecord(r)));
+      timeLabel.textContent = DEFAULT_LABEL;
+      showClock();
+    }
+
+    // ---- 起動: 前回の内容をすぐ出して、最新のものは1回の通信でまとめて取りに行く ----
     const initialLoading = document.getElementById('initialLoading');
     const mainApp = document.getElementById('mainApp');
 
@@ -1233,17 +1255,31 @@
       initialLoading.style.display = 'none';
       mainApp.style.display = 'block';
       updateVisibilityBlock();
-      loadForSelectedDate();
+      if (!renderFromCache()) {
+        timeLabel.textContent = '読み込み中...';
+        hideClock();
+      }
     }
 
     function initApp() {
-      callApi({ type: 'user' }, (s) => {
-        if (s && s.nickname) myNickname = s.nickname;
-        callApi({ type: 'groups' }, (d) => {
-          myGroups = (d && d.groups) || [];
-          enterApp();
-        }, enterApp);
-      }, enterApp);
+      const meta = loadMeta();
+      if (meta) { myNickname = meta.nickname || ''; myGroups = meta.groups || []; }
+      enterApp();
+      const ds = dateStr;
+      const version = localVersion;
+      callApi({ type: 'init', date: ds }, (d) => {
+        if (!d || d.error) { onInitFailed(); return; }
+        myNickname = d.nickname || myNickname;
+        myGroups = d.groups || [];
+        saveMeta();
+        updateVisibilityBlock();
+        renderGroupList();
+        applyServerRecords(d.records || [], ds, version);
+      }, onInitFailed);
+    }
+    function onInitFailed() {
+      timeLabel.textContent = '読み込みに失敗しました。通信を確認して、開き直してください';
+      showClock();
     }
 
     liff.init({ liffId: '2011303051-VhtUseuB' }).then(() => {
@@ -1508,42 +1544,30 @@
         return;
       }
       lastUsedColor = formSelectedColor;
-      document.getElementById('f_visibility').value = myVisibility;
-      document.getElementById('f_groupIds').value = myGroupIdsNow.join(',');
+      const groupIdsStr = myGroupIdsNow.join(',');
 
       if (currentEditSegment) {
         const seg = currentEditSegment;
-        document.getElementById('f_action').value = 'update';
-        document.getElementById('f_id').value = seg.id;
-                document.getElementById('f_category').value = formSelectedColor;
-        document.getElementById('f_startHour').value = start;
-        document.getElementById('f_endHour').value = end;
-        document.getElementById('f_detail').value = detail;
-        submitSaveForm();
-
         seg.color = formSelectedColor;
         seg.visibility = myVisibility;
         seg.groupIds = myGroupIdsNow;
         seg.detail = detail;
         seg.startHour = start;
         seg.endHour = end;
+        commitLocalChange();
         updateSummary();
         renderClockFace();
         timeLabel.textContent = '更新しました';
+        sendSave({ type: 'save', action: 'update', id: seg.id, category: formSelectedColor, startHour: start, endHour: end,
+          detail, visibility: myVisibility, groupIds: groupIdsStr });
       } else {
         const newId = genId();
-        document.getElementById('f_action').value = 'create';
-        document.getElementById('f_id').value = newId;
-                document.getElementById('f_category').value = formSelectedColor;
-        document.getElementById('f_startHour').value = start;
-        document.getElementById('f_endHour').value = end;
-        document.getElementById('f_detail').value = detail;
-        document.getElementById('f_date').value = dateStr;
-        submitSaveForm();
-
         // 記録した時間帯を円グラフに固定表示として残す
         addSegment({ id: newId, startHour: start, endHour: end, color: formSelectedColor, detail, visibility: myVisibility, groupIds: myGroupIdsNow });
+        commitLocalChange();
         timeLabel.textContent = '記録しました!続けて記録できます';
+        sendSave({ type: 'save', action: 'create', id: newId, category: formSelectedColor, startHour: start, endHour: end,
+          detail, date: dateStr, visibility: myVisibility, groupIds: groupIdsStr });
       }
       closeRecordForm();
     });
@@ -1551,55 +1575,53 @@
     formDeleteBtn.addEventListener('click', () => {
       if (!currentEditSegment) return;
       const seg = currentEditSegment;
-      document.getElementById('f_action').value = 'delete';
-      document.getElementById('f_id').value = seg.id;
-            submitSaveForm();
-
       savedSegments = savedSegments.filter((x) => x !== seg);
+      commitLocalChange();
       updateSummary();
       renderClockFace();
       timeLabel.textContent = '削除しました';
       closeRecordForm();
+      sendSave({ type: 'save', action: 'delete', id: seg.id });
     });
 
     // ---- 記録の読み込み(表示中の日付ぶん) ----
-    // 日付をすばやく切り替えても取り違えないよう、リクエストごとに専用のコールバック名を使う
-    let requestCounter = 0;
-
     function loadTodayRecords(showLoadingText) {
       if (showLoadingText) {
         timeLabel.textContent = '読み込み中...';
         hideClock();
       }
       const requestedDate = dateStr;
-      requestCounter += 1;
-      const cbName = 'handleTodayRecords_' + requestCounter;
-      window[cbName] = function (records) {
-        delete window[cbName];
-        if (isAuthError(records)) { relogin(); return; }
-        if (!Array.isArray(records)) { records = []; }
-        saveToCache(userId, records, requestedDate);
-        if (requestedDate !== dateStr) return; // その間に別の日に切り替えていたら描画しない
-        // キャッシュ表示と実際のデータがズレないよう、最新のサーバーデータで描き直す
-        savedArcsGroup.innerHTML = '';
-        savedSegments = [];
-        records.forEach((r) => {
-          addSegment(segFromRecord(r));
-        });
-        timeLabel.textContent = DEFAULT_LABEL;
-        showClock();
-      };
-      const url = `${GAS_API_URL}?idToken=${encodeURIComponent(getFreshIdToken())}&date=${requestedDate}&callback=${cbName}`;
-      const script = document.createElement('script');
-      script.src = url;
-      script.onerror = function () {
-        delete window[cbName];
+      const version = localVersion;
+      callApi({ date: requestedDate }, (records) => {
+        if (!Array.isArray(records)) records = [];
+        applyServerRecords(records, requestedDate, version);
+      }, () => {
         if (requestedDate === dateStr) {
           timeLabel.textContent = '記録の読み込みに失敗しました';
           showClock(); // 空でも操作できるように円は表示しておく
         }
+      });
+    }
+
+    // ---- 記録の保存 ----
+    // 画面には先に反映して、裏でサーバーに送る。届いたかどうかを確かめ、失敗したら知らせて最新の状態に戻す。
+    function sendSave(params, attempt) {
+      attempt = attempt || 0;
+      if (attempt === 0) pendingWrites += 1;
+      const finish = (ok) => {
+        pendingWrites -= 1;
+        if (!ok) {
+          showCenterAlert('⚠️ 保存できませんでした\n通信を確認して、もう一度お試しください');
+          loadTodayRecords(false);
+        }
       };
-      document.body.appendChild(script);
+      callApi(params, (d) => {
+        if (d && d.ok) finish(true); else finish(false);
+      }, () => {
+        // 通信そのものに失敗したときだけ、少し待って再送する(同じIDは二重に追加されない)
+        if (attempt < 2) setTimeout(() => sendSave(params, attempt + 1), 1500 * (attempt + 1));
+        else finish(false);
+      });
     }
   </script>
 </body>
