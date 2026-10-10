@@ -82,6 +82,8 @@
     .chip.active { border-color: #06c755; background: #eafaf0; color: #06a047; font-weight: bold; }
     #feedClockWrap { width: 300px; margin: 0 auto; }
     #feedClock { touch-action: none; user-select: none; }
+    #feedShare { text-align: center; margin: 0 0 10px; font-size: 12px; color: #777; }
+    #feedShare .g-btn { margin-top: 4px; }
     #feedSummary { text-align: center; font-size: 13px; color: #555; margin: 2px 0 8px; }
     #feedDetail .detail-card { margin: 0 0 10px; }
     .detail-actions { display: flex; align-items: center; justify-content: flex-end; margin-top: 8px; }
@@ -214,6 +216,7 @@
         </svg>
       </div>
       <div id="feedSummary"></div>
+      <div id="feedShare"></div>
       <div id="feedDetail"></div>
       <div id="feedList"></div>
       <div id="feedMsg" style="min-height:16px;font-size:12px;color:#e74c3c;text-align:center;margin:6px 0;"></div>
@@ -444,7 +447,7 @@
     }
 
     const CENTER = { x: 150, y: 150 };
-    const today = new Date();
+    let today = new Date();
     function toDateStr(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
@@ -961,6 +964,8 @@
     let feedMembersList = null;     // [{key, nickname, isMe}]
     let feedRecords = [];           // その日に公開された全員の記録
     let feedSelectedKey = null;     // 見ているメンバー
+    let feedLoading = false;         // 記録を読み込み中か
+    let feedMyPrivate = 0;           // この日の自分の記録のうち、このグループにまだ出していない数
     let feedSelectedRecordId = null; // タップした記録
     const feedClock = document.getElementById('feedClock');
     const feedArcs = document.getElementById('feedArcs');
@@ -985,11 +990,6 @@
       feedMsg.textContent = '';
       document.getElementById('feedChips').innerHTML = '';
       renderFeedView();
-      callApi({ type: 'members', groupId: group.id }, (d) => {
-        if (feedGroup !== group) return;
-        feedMembersList = (d && d.members) || [];
-        renderFeedView();
-      });
       loadFeed();
       groupView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -1003,13 +1003,26 @@
       const mine = feedRequest;
       feedSelectedRecordId = null;
       feedMsg.textContent = '';
+      // 日付を変えたら、読み込みを待たずに、円の日付を切り替えて前の日の記録を消す
+      feedRecords = [];
+      feedMyPrivate = 0;
+      feedLoading = true;
+      renderFeedView();
+      // 新しく入った人がいてもいいように、メンバーも毎回読み直す
+      callApi({ type: 'members', groupId: group.id }, (d) => {
+        if (feedGroup !== group || !d || !d.members) return;
+        feedMembersList = d.members;
+        renderFeedView();
+      });
       callApi({ type: 'feed', groupId: group.id, date: ds }, (d) => {
         if (mine !== feedRequest) return;
-        if (d && d.records) { feedRecords = d.records; renderFeedView(); }
-        else feedMsg.textContent = GROUP_ERRORS[d && d.error] || '読み込めませんでした';
+        if (d && d.records) { feedRecords = d.records; feedMyPrivate = d.myPrivateCount || 0; feedLoading = false; renderFeedView(); }
+        else { feedLoading = false; renderFeedView(); feedMsg.textContent = GROUP_ERRORS[d && d.error] || '読み込めませんでした'; }
       }, () => {
         if (mine !== feedRequest) return;
-        feedMsg.textContent = '読み込みに失敗しました';
+        feedLoading = false;
+        renderFeedView();
+        feedMsg.textContent = '読み込みに失敗しました。もう一度お試しください';
       });
     }
 
@@ -1026,15 +1039,14 @@
 
     function renderFeedView() {
       // メンバーの一覧(取得できるまでは、記録のある人から作る)
-      let members = feedMembersList;
-      if (!members) {
-        const seen = {};
-        members = [];
-        feedRecords.forEach((r) => {
-          if (!seen[r.memberKey]) { seen[r.memberKey] = true; members.push({ key: r.memberKey, nickname: r.nickname, isMe: r.isMe }); }
-        });
-      }
-      members = members.slice().sort((a, b) => (b.isMe ? 1 : 0) - (a.isMe ? 1 : 0));
+      // メンバー一覧に、記録を出している人を足す(一覧の取得が遅れたり、途中で誰かが入ったりしても、取りこぼさない)
+      const members = (feedMembersList || []).slice();
+      const seen = {};
+      members.forEach((m) => { seen[m.key] = true; });
+      feedRecords.forEach((r) => {
+        if (!seen[r.memberKey]) { seen[r.memberKey] = true; members.push({ key: r.memberKey, nickname: r.nickname, isMe: r.isMe }); }
+      });
+      members.sort((a, b) => (b.isMe ? 1 : 0) - (a.isMe ? 1 : 0));
       if (!members.some((m) => m.key === feedSelectedKey)) feedSelectedKey = members.length ? members[0].key : null;
 
       const chips = document.getElementById('feedChips');
@@ -1056,12 +1068,39 @@
       const segs = feedSegs();
       drawArcs(feedArcs, segs, feedSelectedRecordId);
       const total = segs.reduce((t, g) => t + segSweep(g), 0);
-      document.getElementById('feedSummary').textContent = segs.length
-        ? `合計 ${formatDuration(total)}`
-        : (feedSelectedKey ? 'この日にグループへ出された記録はありません' : '');
+      document.getElementById('feedSummary').textContent = feedLoading
+        ? '読み込み中...'
+        : (segs.length ? `合計 ${formatDuration(total)}` : (feedSelectedKey ? 'この日にグループへ出された記録はありません' : ''));
 
+      renderFeedShare(members);
       renderFeedDetail(segs);
       renderFeedList(segs);
+    }
+
+    // 自分を見ているときだけ、「この日の自分の記録をこのグループにも出す」ボタンを出す
+    function renderFeedShare(members) {
+      const box = document.getElementById('feedShare');
+      box.innerHTML = '';
+      const me = members.find((m) => m.isMe);
+      if (!me || me.key !== feedSelectedKey || !feedMyPrivate) return;
+      const msg = document.createElement('div');
+      msg.textContent = `この日、グループに出していない自分の記録が ${feedMyPrivate} 件あります`;
+      const btn = document.createElement('button');
+      btn.className = 'g-btn';
+      btn.textContent = 'この日の記録をグループに出す';
+      btn.addEventListener('click', () => {
+        btn.disabled = true;
+        const ds = toDateStr(feedDate);
+        callApi({ type: 'shareDay', groupId: feedGroup.id, date: ds }, (d) => {
+          if (d && d.ok) {
+            try { localStorage.removeItem(cacheKey(userId, ds)); } catch (e) {}
+            if (ds === dateStr) loadTodayRecords(false);
+            loadFeed();
+          } else { btn.disabled = false; feedMsg.textContent = GROUP_ERRORS[d && d.error] || '出せませんでした'; }
+        }, () => { btn.disabled = false; feedMsg.textContent = '通信に失敗しました'; });
+      });
+      box.appendChild(msg);
+      box.appendChild(btn);
     }
 
     function renderFeedDetail(segs) {
@@ -1295,6 +1334,29 @@
       initApp();
     }).catch((err) => {
       initialLoading.textContent = 'ログインエラー: ' + err;
+    });
+
+    // ---- アプリを開きっぱなしにして、日付が変わったり、しばらく経ってから戻ってきたとき ----
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+      if (!userId || mainApp.style.display !== 'block') return;
+      const away = hiddenAt ? Date.now() - hiddenAt : 0;
+      const oldToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const nowDate = new Date();
+      if (toDateStr(nowDate) !== toDateStr(oldToday)) {
+        // 日付をまたいでいた: 「今日」を更新し、今日を見ていた画面は新しい今日へ進める
+        today = nowDate;
+        const newToday = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+        if (isSameDate(selectedDate, oldToday)) switchToDate(newToday);
+        if (feedGroup && isSameDate(feedDate, oldToday)) { feedDate = newToday; loadFeed(); }
+        return;
+      }
+      // 1分以上離れていたなら、最新の内容に読み直す(他の端末や他の人の変更を反映)
+      if (away > 60 * 1000) {
+        loadTodayRecords(false);
+        if (feedGroup && groupView.style.display === 'block') loadFeed();
+      }
     });
 
     closeBtn.addEventListener('click', () => {
